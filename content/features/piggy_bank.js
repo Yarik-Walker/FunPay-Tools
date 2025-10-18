@@ -131,9 +131,11 @@ function renderPiggyBankSettings() {
 }
 
 function showPiggyBankModal(piggyBank = null) {
+    // ИЗМЕНЕНО: Проверка, не открыто ли уже модальное окно
+    if (document.querySelector('.piggy-bank-modal-overlay')) return;
+
     const isEditing = !!piggyBank;
-    const modalId = `piggy-bank-modal-${Date.now()}`;
-    const overlay = createElement('div', { class: 'piggy-bank-modal-overlay', id: modalId });
+    const overlay = createElement('div', { class: 'piggy-bank-modal-overlay' });
     overlay.innerHTML = `
         <div class="piggy-bank-modal">
             <h4>${isEditing ? 'Редактировать копилку' : 'Новая копилка'}</h4>
@@ -159,7 +161,6 @@ function showPiggyBankModal(piggyBank = null) {
     overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
 
     overlay.querySelector('.save-btn').addEventListener('click', () => {
-        // ИЗМЕНЕНО: Ищем поля внутри текущего модального окна, а не по всему документу
         const nameInput = overlay.querySelector('#pb-name');
         const goalInput = overlay.querySelector('#pb-goal');
         
@@ -192,6 +193,10 @@ function showPiggyBankModal(piggyBank = null) {
 }
 
 function initializePiggyBank() {
+    // ИЗМЕНЕНО: Защита от повторной инициализации
+    if (document.body.dataset.piggyBankInitialized) return;
+    document.body.dataset.piggyBankInitialized = 'true';
+
     loadPiggyBanks().then(() => {
         renderNavbarIcon();
         renderPiggyBankSettings();

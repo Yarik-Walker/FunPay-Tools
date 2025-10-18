@@ -2,16 +2,17 @@
 
 import { fetchAIResponse, fetchAILotGeneration, fetchAITranslation, fetchAIImageGeneration } from './ai.js';
 import { BUMP_ALARM_NAME, startAutoBump, stopAutoBump, runBumpCycle } from './autobump.js';
+import { runAutoResponderCycle } from './autoresponder.js'; // <-- НОВЫЙ ИМПОРТ
 
 const OFFSCREEN_DOCUMENT_PATH = 'offscreen/offscreen.html';
 const DISCORD_LOG_ALARM_NAME = 'fpToolsDiscordCheck';
 const ANNOUNCEMENT_CHECK_ALARM = 'fpToolsAnnouncementCheck';
+const AUTO_RESPONDER_ALARM_NAME = 'fpToolsAutoResponder'; // <-- НОВОЕ ИМЯ БУДИЛЬНИКА
 let lastDiscordChatTag = null;
 const ANNOUNCEMENTS_URL = 'https://gist.githubusercontent.com/XaviersDev/d2cf9207d39b55bd50207123e924456c/raw/fptoolsannouncements';
 const IMPORT_PROCESS_KEY = 'fpToolsLotImportProcess';
 const RETRY_LIMIT = 5;
 const RETRY_DELAY = 5000; // 5 секунд
-
 
 async function fetchAnnouncements() {
     try {
@@ -696,10 +697,14 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     if (alarm.name === ANNOUNCEMENT_CHECK_ALARM) { 
         await checkAnnouncements();
     }
+    // <-- НОВЫЙ ОБРАБОТЧИК -->
+    if (alarm.name === AUTO_RESPONDER_ALARM_NAME) {
+        await runAutoResponderCycle();
+    }
 });
 
 function setupInitialAlarms() {
-    chrome.storage.local.get(['autoBumpEnabled', 'autoBumpCooldown', 'fpToolsDiscord'], (settings) => {
+    chrome.storage.local.get(['autoBumpEnabled', 'autoBumpCooldown', 'fpToolsDiscord', 'fpToolsAutoReplies'], (settings) => {
         if (settings.autoBumpEnabled && settings.autoBumpCooldown) {
             chrome.alarms.create(BUMP_ALARM_NAME, {
                 delayInMinutes: 1,
@@ -713,6 +718,15 @@ function setupInitialAlarms() {
                 periodInMinutes: 1
             });
             runDiscordCheckCycle();
+        }
+        // <-- НОВЫЙ БЛОК ДЛЯ АВТООТВЕТЧИКА -->
+        const autoReplies = settings.fpToolsAutoReplies || {};
+        if (autoReplies.greetingEnabled || autoReplies.keywordsEnabled || autoReplies.autoReviewEnabled) {
+            chrome.alarms.create(AUTO_RESPONDER_ALARM_NAME, {
+                delayInMinutes: 1,
+                periodInMinutes: 0.25 // Каждые 15 секунд
+            });
+            runAutoResponderCycle();
         }
     });
     chrome.alarms.create(ANNOUNCEMENT_CHECK_ALARM, {
@@ -753,6 +767,21 @@ chrome.storage.onChanged.addListener((changes, area) => {
                 runDiscordCheckCycle();
             } else if (!isEnabled && alarm) {
                 chrome.alarms.clear(DISCORD_LOG_ALARM_NAME);
+            }
+        });
+    }
+
+    // <-- НОВЫЙ БЛОК ДЛЯ УПРАВЛЕНИЯ БУДИЛЬНИКОМ АВТООТВЕТЧИКА -->
+    if (changes.fpToolsAutoReplies) {
+        const newSettings = changes.fpToolsAutoReplies.newValue || {};
+        const isEnabled = newSettings.greetingEnabled || newSettings.keywordsEnabled || newSettings.autoReviewEnabled;
+
+        chrome.alarms.get(AUTO_RESPONDER_ALARM_NAME, (alarm) => {
+            if (isEnabled && !alarm) {
+                chrome.alarms.create(AUTO_RESPONDER_ALARM_NAME, { delayInMinutes: 1, periodInMinutes: 0.25 });
+                runAutoResponderCycle();
+            } else if (!isEnabled && alarm) {
+                chrome.alarms.clear(AUTO_RESPONDER_ALARM_NAME);
             }
         });
     }

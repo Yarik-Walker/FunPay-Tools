@@ -1,8 +1,8 @@
 {
     "manifest_version": 3,
     "name": "FunPay Tools",
-    "version": "2.5",
-    "description": "Лучшее расширение для FunPay ⚡ 50+ инструментов • ИИ-помощник • Аналитика • Автоматизация • Больше продаж",
+    "version": "2.6",
+    "description": "Глобальное расширение для FunPay ⚡ 100+ инструментов • ИИ-помощник • Автоответчик • Аналитика • Автоматизация • Больше продаж",
     "permissions": [
         "storage",
         "tabs",
@@ -75,6 +75,7 @@
                 "content/features/magicstick.js",
                 "content/features/piggy_bank.js",
                 "content/features/lot_io.js",
+                "content/features/auto_review.js",
                 "content/ui/main_popup.js",
                 "content/ui/header_button_styler.js",
                 "content/content_script.js"
@@ -91,7 +92,9 @@
     "web_accessible_resources": [
         {
             "resources": [
-                "sounds/*.mp3"
+                "sounds/*.mp3",
+                "background/remake.html",
+                "background/remake.js"
             ],
             "matches": [
                 "https://funpay.com/*"

@@ -332,7 +332,8 @@
         initializeMarkAllAsRead();
         initializeHeaderButtonStyler();
         initializeAnnouncementsFeature();
-        initializeLotIO(); // <-- ВЫЗОВ НОВОЙ ФУНКЦИИ
+        initializeLotIO();
+        initializeAutoReview(); // <-- ВЫЗОВ НОВОЙ ФУНКЦИИ
 
         chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             if (request.action === 'logToAutoBumpConsole') {

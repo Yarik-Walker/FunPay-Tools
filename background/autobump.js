@@ -1,3 +1,5 @@
+// background/autobump.js
+
 export const BUMP_ALARM_NAME = 'fpToolsAutoBump';
 
 async function logToConsole(message) {
@@ -18,6 +20,24 @@ async function logToConsole(message) {
         console.error("Error sending log message to content script:", error);
     }
 }
+
+// --- НОВЫЙ БЛОК: Скопированная функция для связи с offscreen.js ---
+async function parseHtmlViaOffscreen(html, action) {
+    const OFFSCREEN_DOCUMENT_PATH = 'offscreen/offscreen.html';
+    const existingContexts = await chrome.runtime.getContexts({
+        contextTypes: ['OFFSCREEN_DOCUMENT'],
+        documentUrls: [chrome.runtime.getURL(OFFSCREEN_DOCUMENT_PATH)]
+    });
+    if (!existingContexts.length) {
+        await chrome.offscreen.createDocument({
+            url: OFFSCREEN_DOCUMENT_PATH,
+            reasons: ['DOM_PARSER'],
+            justification: 'Parsing FunPay page HTML for autobump',
+        });
+    }
+    return await chrome.runtime.sendMessage({ target: 'offscreen', action, html });
+}
+// --- КОНЕЦ НОВОГО БЛОКА ---
 
 async function getAuthDetails() {
     const goldenKeyCookie = await chrome.cookies.get({ url: 'https://funpay.com', name: 'golden_key' });
@@ -107,27 +127,36 @@ async function raiseCategory(categoryData, auth) {
     }
 }
 
+// --- ИЗМЕНЕННАЯ ФУНКЦИЯ ---
 export async function runBumpCycle() {
     try {
-        const { fpToolsSelectiveBumpEnabled, fpToolsSelectedBumpCategories } = await chrome.storage.local.get(['fpToolsSelectiveBumpEnabled', 'fpToolsSelectedBumpCategories']);
+        const { fpToolsSelectiveBumpEnabled, fpToolsSelectedBumpCategories, fpToolsBumpOnlyAutoDelivery } = await chrome.storage.local.get(['fpToolsSelectiveBumpEnabled', 'fpToolsSelectedBumpCategories', 'fpToolsBumpOnlyAutoDelivery']);
 
         const auth = await getAuthDetails();
         const userUrl = `https://funpay.com/users/${auth.userId}/`;
         const userPageResponse = await fetch(userUrl, { headers: { 'Cookie': auth.cookies } });
         const userPageHtml = await userPageResponse.text();
 
-        const categoryLinkRegex = /<a[^>]+href="([^"]+)"[^>]*class="[^"]*btn-plus[^"]*"/g;
-        let categoryUrls = Array.from(userPageHtml.matchAll(categoryLinkRegex), match => match[1])
-                                  .filter(url => !url.includes('chips'))
-                                  .map(path => new URL(path, 'https://funpay.com/'));
+        // Получаем структурированный список категорий
+        let categories = await parseHtmlViaOffscreen(userPageHtml, 'parseUserCategories');
+        
+        // Фильтр по автовыдаче
+        if (fpToolsBumpOnlyAutoDelivery) {
+            await logToConsole(`Режим "Только автовыдача" активен. Фильтрация...`);
+            categories = categories.filter(cat => cat.hasAutoDelivery);
+        }
 
+        // Фильтр по выборочным категориям
         if (fpToolsSelectiveBumpEnabled && fpToolsSelectedBumpCategories && fpToolsSelectedBumpCategories.length > 0) {
             await logToConsole(`Режим выборочного поднятия активен. Выбрано категорий: ${fpToolsSelectedBumpCategories.length}.`);
-            categoryUrls = categoryUrls.filter(url => fpToolsSelectedBumpCategories.includes(url.pathname));
+            categories = categories.filter(cat => fpToolsSelectedBumpCategories.includes(cat.id));
         } else if (fpToolsSelectiveBumpEnabled) {
             await logToConsole("Выборочное поднятие включено, но категории не выбраны. Ничего не будет поднято.");
             return;
         }
+        
+        // Преобразуем отфильтрованный список в URL
+        let categoryUrls = categories.map(cat => new URL(cat.id, 'https://funpay.com/'));
 
         if (categoryUrls.length === 0) {
             await logToConsole("Нет категорий для поднятия (согласно настройкам).");

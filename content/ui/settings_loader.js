@@ -1,3 +1,5 @@
+// content/ui/settings_loader.js
+
 let fpToolsAccounts = [];
 let aiModeActive = false;
 
@@ -127,7 +129,9 @@ async function loadSavedSettings() {
         'fpToolsAccounts', 'showSalesStats', 'hideBalance', 'viewSellersPromo', 'notificationSound',
         'fpToolsDiscord',
         // New settings for selective bump
-        'fpToolsSelectiveBumpEnabled', 'fpToolsSelectedBumpCategories' 
+        'fpToolsSelectiveBumpEnabled', 'fpToolsSelectedBumpCategories', 'fpToolsBumpOnlyAutoDelivery', // --- ИЗМЕНЕНО ---
+        // New settings for auto-replies
+        'autoReviewEnabled', 'reviewTemplates', 'greetingEnabled', 'greetingText', 'keywordsEnabled', 'keywords'
     ]);
     
     fpToolsAccounts = settings.fpToolsAccounts || [];
@@ -183,6 +187,11 @@ async function loadSavedSettings() {
         discordLogEnabledEl.addEventListener('change', toggleDiscordControls);
         toggleDiscordControls();
     }
+    
+    // Load Auto-Reply Settings
+    if (typeof initializeAutoReviewUI === 'function') {
+        initializeAutoReviewUI(settings);
+    }
 
     await setupTemplateSettingsHandlers();
 
@@ -205,6 +214,7 @@ async function loadSavedSettings() {
     document.getElementById('autoBumpEnabled').checked = settings.autoBumpEnabled === true;
     document.getElementById('autoBumpCooldown').value = settings.autoBumpCooldown || 245;
     document.getElementById('selectiveBumpEnabled').checked = settings.fpToolsSelectiveBumpEnabled === true;
+    document.getElementById('bumpOnlyAutoDelivery').checked = settings.fpToolsBumpOnlyAutoDelivery === true; // --- НОВАЯ СТРОКА ---
 
     document.getElementById('enableRedesignedHomepage').checked = settings.enableRedesignedHomepage !== false;
 

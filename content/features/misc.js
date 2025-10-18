@@ -160,14 +160,35 @@ function initializeToolsPopup() {
         try {
             const selectedSound = document.querySelector('input[name="notificationSound"]:checked');
             
+            // --- ИСПРАВЛЕНО: Добавлено считывание настроек авто-ответов ---
+            const reviewTemplates = {
+                '5': document.getElementById('fpt-review-5').value,
+                '4': document.getElementById('fpt-review-4').value,
+                '3': document.getElementById('fpt-review-3').value,
+                '2': document.getElementById('fpt-review-2').value,
+                '1': document.getElementById('fpt-review-1').value
+            };
+            
             const settingsToSave = {
+                // Общие настройки
                 showSalesStats: document.getElementById('showSalesStatsCheckbox').checked,
                 hideBalance: document.getElementById('hideBalanceCheckbox').checked,
                 viewSellersPromo: document.getElementById('viewSellersPromoCheckbox').checked,
                 notificationSound: selectedSound ? selectedSound.value : 'default',
+
+                // Авто-поднятие
                 autoBumpEnabled: document.getElementById('autoBumpEnabled').checked,
                 autoBumpCooldown: parseInt(document.getElementById('autoBumpCooldown').value, 10) || 245,
-                fpToolsSelectiveBumpEnabled: document.getElementById('selectiveBumpEnabled').checked
+                fpToolsSelectiveBumpEnabled: document.getElementById('selectiveBumpEnabled').checked,
+                fpToolsBumpOnlyAutoDelivery: document.getElementById('bumpOnlyAutoDelivery').checked, // --- НОВАЯ СТРОКА ---
+                
+                // Авто-ответы (добавленный блок)
+                autoReviewEnabled: document.getElementById('autoReviewEnabled').checked,
+                reviewTemplates: reviewTemplates,
+                greetingEnabled: document.getElementById('greetingEnabled').checked,
+                greetingText: document.getElementById('greetingText').value,
+                keywordsEnabled: document.getElementById('keywordsEnabled').checked
+                // 'keywords' сохраняются отдельно при добавлении/удалении и здесь не нужны
             };
 
             settingsToSave.fpToolsDiscord = {
@@ -185,6 +206,11 @@ function initializeToolsPopup() {
                 chrome.runtime.sendMessage({ action: 'startAutoBump', cooldown: settingsToSave.autoBumpCooldown });
             } else {
                 chrome.runtime.sendMessage({ action: 'stopAutoBump' });
+            }
+            
+            // Перезапускаем мониторинг отзывов, если настройка изменилась
+            if (typeof initializeAutoReview === 'function') {
+                initializeAutoReview();
             }
 
             popup.classList.remove('active');
@@ -249,7 +275,9 @@ function initializeToolsPopup() {
         listContainer.innerHTML = '<div class="fp-import-loader"></div>';
 
         try {
-            const categories = await chrome.runtime.sendMessage({ action: 'getUserCategories' });
+            const response = await chrome.runtime.sendMessage({ action: 'getUserCategories' });
+            if (!response.success) throw new Error(response.error);
+            const categories = response.data;
             const { fpToolsSelectedBumpCategories = [] } = await chrome.storage.local.get('fpToolsSelectedBumpCategories');
             
             if (categories && categories.length > 0) {
@@ -314,7 +342,6 @@ function initializeToolsPopup() {
     popup.dataset.initialized = 'true';
     console.log('FP Tools Popup Initialized.');
 }
-
 
 function logToAutoBumpConsole(message) {
     const consoleEl = document.getElementById('autoBumpConsole');

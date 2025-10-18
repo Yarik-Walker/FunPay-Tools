@@ -1,7 +1,14 @@
 let lastAIProcessedText = null;
 let isAISuggestionActive = false;
-const PROFANITY_ROOTS = ['хуй', 'пизд', 'бля', 'еба', 'ёба', 'сука', 'сучар', 'мраз', 'гнид', 'уеб', 'уёб', 'пидр', 'пидор', 'гомо', 'петух', 'залуп', 'мудак', 'манда', 'мудозвон', 'вагин', 'шлюх', 'нахуй', 'похуй', 'охуе', 'ахуе', 'еблан', 'долбоеб', 'долбоёб', 'ебуч', 'ёбуч', 'пиздюк', 'чмо', 'мразь', 'конч', 'дроч'];
+const PROFANITY_ROOTS = ['хуй', 'пизд', 'бля', 'еба', 'ёба', 'сука', 'сучар', 'мраз', 'гнид', 'уеб', 'уёб', 'пидр', 'пидор', 'гомо', 'петух', 'залуп', 'мудак', 'манда', 'мудозвон', 'вагин', 'шлюх', 'нахуй', 'похуй', 'охуе', 'ахуе', 'еблан', 'долбоеб', 'долбоёб', 'ебуч', 'ёбуч', 'пиздюк', 'чмо', 'мразь', 'конча', 'дроч'];
 const profanityRegex = new RegExp(`(${PROFANITY_ROOTS.join('|')})`, 'i');
+
+// --- ИЗМЕНЕНИЕ: Функционал автоответчика и наблюдателя за чатом полностью отключен по запросу ---
+// Функция оставлена пустой, чтобы не вызывать ошибок.
+function setupChatObserver() {
+    // Наблюдатель за чатом, который запускал автоответчик, УДАЛЕН.
+    // Эта функция теперь ничего не делает.
+}
 
 function getChatContext() {
     const myUsernameEl = document.querySelector('.user-link-name');
@@ -113,6 +120,8 @@ function setupProfanityChecker(chatTextarea, warningDiv) {
 }
 
 function setupAIChatFeature() {
+    setupChatObserver(); // <--- ВЫЗЫВАЕМ ПУСТУЮ ФУНКЦИЮ, КОТОРАЯ НИЧЕГО НЕ ДЕЛАЕТ
+
     const chatFormInputDiv = document.querySelector('.chat-form-input');
     const chatTextarea = chatFormInputDiv ? chatFormInputDiv.querySelector('textarea.form-control') : null;
     const chatFormAttachDiv = document.querySelector('.chat-form-attach');

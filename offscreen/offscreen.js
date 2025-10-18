@@ -95,7 +95,6 @@ function parseSalesPage(html) {
     }
 }
 
-// --- НОВЫЙ КОД ДЛЯ ЭКСПОРТА ЛОТОВ ---
 function parseLotEditPage(html) {
     try {
         const doc = new DOMParser().parseFromString(html, 'text/html');
@@ -107,12 +106,10 @@ function parseLotEditPage(html) {
         const formData = new FormData(form);
         const dataObject = {};
         
-        // Преобразуем FormData в обычный объект
         for (const [key, value] of formData.entries()) {
             dataObject[key] = value;
         }
 
-        // Удаляем ненужные поля
         delete dataObject.csrf_token;
         delete dataObject.location;
 
@@ -122,7 +119,6 @@ function parseLotEditPage(html) {
         return null;
     }
 }
-// --- КОНЕЦ НОВОГО КОДА ---
 
 function parseChatList(html) {
     try {
@@ -233,20 +229,32 @@ function parseLotListPage(html) {
     }
 }
 
+// --- ИСПРАВЛЕННАЯ ФУНКЦИЯ ---
 function parseUserCategories(html) {
     try {
         const doc = new DOMParser().parseFromString(html, 'text/html');
         const categories = [];
         const offerBlocks = doc.querySelectorAll('.offer');
+        
         offerBlocks.forEach(block => {
+            // Ищем правильную ссылку для поднятия (`.../trade`)
+            const managementLink = block.querySelector('a.btn-plus');
+            // Ищем ссылку с названием для отображения
             const titleLink = block.querySelector('.offer-list-title h3 a');
-            if (titleLink) {
+
+            if (managementLink && titleLink) {
                 const name = titleLink.textContent.trim();
-                const url = new URL(titleLink.href, 'https://funpay.com/');
+                const url = new URL(managementLink.href, 'https://funpay.com/');
+                
+                // Проверяем наличие иконки автовыдачи ВНУТРИ этого блока `.offer`
+                const categoryHasAutoDelivery = !!block.querySelector('i.auto-dlv-icon');
+
                 const lotItems = block.querySelectorAll('.tc-item');
                 const lots = Array.from(lotItems).map(item => {
                     const idMatch = item.getAttribute('href')?.match(/id=(\d+)/);
-                    const nodeIdMatch = url.pathname.match(/\/lots\/(\d+)/);
+                    // Для nodeId используем ссылку на категорию, а не на управление
+                    const publicUrl = new URL(titleLink.href, 'https://funpay.com/');
+                    const nodeIdMatch = publicUrl.pathname.match(/\/lots\/(\d+)/);
                     return {
                         id: idMatch ? idMatch[1] : null,
                         nodeId: nodeIdMatch ? nodeIdMatch[1] : null,
@@ -254,13 +262,43 @@ function parseUserCategories(html) {
                     };
                 }).filter(lot => lot.id && lot.nodeId);
                 
-                categories.push({ id: url.pathname, name: name, lots: lots });
+                // Сохраняем pathname от `managementLink` как ID
+                categories.push({ id: url.pathname, name: name, lots: lots, hasAutoDelivery: categoryHasAutoDelivery });
             }
         });
         return categories;
     } catch (e) {
         console.error("FP Tools Offscreen: Error in parseUserCategories", e);
         return [];
+    }
+}
+// --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+
+function parseOrderPageForReview(html) {
+    try {
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        
+        const reviewAuthorLink = doc.querySelector('.review-item-head .media-user-name a');
+        const reviewAuthorId = reviewAuthorLink ? reviewAuthorLink.href.split('/').filter(Boolean).pop() : null;
+
+        const currentUserLink = doc.querySelector('.user-link-dropdown');
+        const currentUserId = currentUserLink ? currentUserLink.href.split('/').filter(Boolean).pop() : null;
+
+        if (reviewAuthorId && currentUserId && reviewAuthorId === currentUserId) {
+            return null;
+        }
+        
+        const ratingDiv = doc.querySelector('.order-review .rating > div');
+        if (!ratingDiv) return null;
+        
+        const ratingClass = Array.from(ratingDiv.classList).find(c => c.startsWith('rating'));
+        if (!ratingClass) return null;
+
+        const stars = parseInt(ratingClass.replace('rating', ''), 10);
+        return isNaN(stars) ? null : stars;
+    } catch (e) {
+        console.error("FP Tools Offscreen: Error in parseOrderPageForReview", e);
+        return null;
     }
 }
 
@@ -292,6 +330,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             break;
         case 'parseUserCategories':
             sendResponse(parseUserCategories(message.html));
+            break;
+        case 'parseOrderPageForReview':
+            sendResponse(parseOrderPageForReview(message.html));
             break;
     }
 

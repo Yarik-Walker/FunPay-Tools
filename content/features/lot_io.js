@@ -50,10 +50,18 @@ function initializeLotIO() {
     const exportBtn = document.getElementById('lot-io-export-btn');
     const importBtn = document.getElementById('lot-io-import-btn');
     const hiddenFileInput = document.getElementById('lot-io-import-file');
+    const convertBtn = document.getElementById('convert-cardinal-lots-btn');
 
     exportBtn.addEventListener('click', showExportModal);
     importBtn.addEventListener('click', () => hiddenFileInput.click());
     hiddenFileInput.addEventListener('change', handleFileImport);
+
+    if (convertBtn) {
+        convertBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            window.open(chrome.runtime.getURL('background/remake.html'));
+        });
+    }
 
     // Слушатель прогресса импорта от background.js
     chrome.runtime.onMessage.addListener((request) => {

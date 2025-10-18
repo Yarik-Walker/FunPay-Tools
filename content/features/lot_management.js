@@ -123,6 +123,31 @@ function initializeLotManagement() {
             $('#fp-tools-pinned-lots-container .lot-box input').prop('checked', true).trigger('change');
         });
 
+        // [ИСПРАВЛЕНО] Добавляем CSS для корректного отображения чекбокса категории
+        if (!$('style[data-fp-tools-category-selector]').length) {
+            $('head').append(`
+                <style data-fp-tools-category-selector>
+                    .offer-list-title-container .offer-list-title {
+                        display: flex;
+                        align-items: center;
+                        flex-grow: 1;
+                    }
+                    .offer-list-title-container .offer-list-title h3 {
+                        margin: 0;
+                    }
+                    .fp-tools-category-selector {
+                        margin-right: 15px;
+                    }
+                </style>
+            `);
+        }
+
+        // Обработчик для чекбоксов категорий
+        $(document).on('change', '.fp-tools-category-selector input', function() {
+            const isChecked = $(this).prop('checked');
+            $(this).closest('.offer').find('.tc-item .lot-box input').prop('checked', isChecked).trigger('change');
+        });
+
         setupActionProcessing();
     });
 }
@@ -133,6 +158,19 @@ function toggleSelectionMode(enable) {
             $('.tc-header').prepend('<div class="action-lots-header-cell"></div>');
         }
         
+        // Добавление чекбоксов для категорий
+        $('.offer-list-title').each(function() {
+            if ($(this).find('.fp-tools-category-selector').length === 0) {
+                const categoryCheckbox = $(`
+                    <label class="lot-box fp-tools-category-selector">
+                        <input type="checkbox" hidden />
+                        <span class="lot-mark"></span>
+                    </label>
+                `);
+                $(this).prepend(categoryCheckbox);
+            }
+        });
+
         $('.tc-item').each(function() {
             if ($(this).find('.action-lots-checkbox-cell').length === 0) {
                 const checkboxCell = $('<div class="action-lots-checkbox-cell"><label class="lot-box"><input type="checkbox" hidden /><span class="lot-mark"></span></label></div>');
@@ -141,7 +179,7 @@ function toggleSelectionMode(enable) {
         });
     } else {
         $('.lot-box input:checked').prop('checked', false).trigger('change');
-        $('.action-lots-header-cell, .action-lots-checkbox-cell').remove();
+        $('.action-lots-header-cell, .action-lots-checkbox-cell, .fp-tools-category-selector').remove();
     }
 }
 
@@ -205,18 +243,37 @@ function setupActionProcessing() {
     }
 
     $(document).on('change', '.lot-box input', function() {
-        const total = $('.lot-box input').length;
-        const checked = $('.lot-box input:checked').length;
+        // [ИСПРАВЛЕНО] Считаем только чекбоксы лотов для общего счетчика
+        const totalLots = $('.tc-item .lot-box input').length;
+        const checkedLots = $('.tc-item .lot-box input:checked').length;
         const selectAllCheckbox = $('#fp-tools-select-all-lots');
 
-        $('.actions').css('display', checked > 0 ? 'flex' : 'none');
-
-        if (total > 0) {
-            selectAllCheckbox.prop('checked', checked === total);
-            selectAllCheckbox.prop('indeterminate', checked > 0 && checked < total);
+        $('.actions').css('display', checkedLots > 0 ? 'flex' : 'none');
+        
+        // Обновляем главный чекбокс "Выбрать все"
+        if (totalLots > 0) {
+            selectAllCheckbox.prop('checked', checkedLots === totalLots);
+            selectAllCheckbox.prop('indeterminate', checkedLots > 0 && checkedLots < totalLots);
         }
         
         updatePinButtonsState();
+
+        // [ИСПРАВЛЕНО] Логика синхронизации чекбокса категории
+        const $offer = $(this).closest('.offer');
+        if ($offer.length > 0) {
+            const $categoryCheckbox = $offer.find('.fp-tools-category-selector input');
+            // Считаем только лоты внутри данной категории
+            const totalInCategory = $offer.find('.tc-item .lot-box input').length;
+            const checkedInCategory = $offer.find('.tc-item .lot-box input:checked').length;
+
+            if (checkedInCategory === 0) {
+                $categoryCheckbox.prop('checked', false).prop('indeterminate', false);
+            } else if (checkedInCategory === totalInCategory) {
+                $categoryCheckbox.prop('checked', true).prop('indeterminate', false);
+            } else {
+                $categoryCheckbox.prop('checked', false).prop('indeterminate', true);
+            }
+        }
     });
     
     $(document).on('click', 'a.tc-item', function(e) {
@@ -284,7 +341,7 @@ function setupActionProcessing() {
     }
 
     async function processPinAction(isPinning) {
-        const selectedCheckboxes = $('.lot-box input:checked').get();
+        const selectedCheckboxes = $('.tc-item .lot-box input:checked').get(); // [ИСПРАВЛЕНО]
         if (selectedCheckboxes.length === 0) return;
     
         toggleActions(true);
@@ -349,7 +406,7 @@ function setupActionProcessing() {
     }
     
     async function processSelectedLots(actionType) {
-        const selectedCheckboxes = $('.lot-box input:checked').get();
+        const selectedCheckboxes = $('.tc-item .lot-box input:checked').get(); // [ИСПРАВЛЕНО]
         if (selectedCheckboxes.length === 0) return;
 
         const csrfToken = getCsrfToken();
@@ -484,7 +541,7 @@ function setupActionProcessing() {
             return;
         }
 
-        const selectedCheckboxes = $('.lot-box input:checked').get();
+        const selectedCheckboxes = $('.tc-item .lot-box input:checked').get(); // [ИСПРАВЛЕНО]
         if (selectedCheckboxes.length === 0) return;
 
         const csrfToken = getCsrfToken();
