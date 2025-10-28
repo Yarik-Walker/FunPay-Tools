@@ -2,12 +2,12 @@
 
 import { fetchAIResponse, fetchAILotGeneration, fetchAITranslation, fetchAIImageGeneration } from './ai.js';
 import { BUMP_ALARM_NAME, startAutoBump, stopAutoBump, runBumpCycle } from './autobump.js';
-import { runAutoResponderCycle } from './autoresponder.js'; // <-- НОВЫЙ ИМПОРТ
+import { runAutoResponderCycle } from './autoresponder.js';
 
 const OFFSCREEN_DOCUMENT_PATH = 'offscreen/offscreen.html';
 const DISCORD_LOG_ALARM_NAME = 'fpToolsDiscordCheck';
 const ANNOUNCEMENT_CHECK_ALARM = 'fpToolsAnnouncementCheck';
-const AUTO_RESPONDER_ALARM_NAME = 'fpToolsAutoResponder'; // <-- НОВОЕ ИМЯ БУДИЛЬНИКА
+const AUTO_RESPONDER_ALARM_NAME = 'fpToolsAutoResponder';
 let lastDiscordChatTag = null;
 const ANNOUNCEMENTS_URL = 'https://gist.githubusercontent.com/XaviersDev/d2cf9207d39b55bd50207123e924456c/raw/fptoolsannouncements';
 const IMPORT_PROCESS_KEY = 'fpToolsLotImportProcess';
@@ -376,7 +376,7 @@ async function runDiscordCheckCycle() {
 }
 
 
-// --- НОВЫЙ БЛОК: ЭКСПОРТ И ИМПОРТ ЛОТОВ ---
+// --- ИЗМЕНЕННЫЙ БЛОК: ЭКСПОРТ И ИМПОРТ ЛОТОВ ---
 
 async function sendImportProgressUpdate(progressData) {
     const tabs = await chrome.tabs.query({ url: "*://funpay.com/*" });
@@ -390,16 +390,20 @@ async function sendImportProgressUpdate(progressData) {
 
 async function processNextLotImport() {
     const { [IMPORT_PROCESS_KEY]: process } = await chrome.storage.local.get(IMPORT_PROCESS_KEY);
-    if (!process || process.currentIndex >= process.lots.length) {
-        await chrome.storage.local.remove(IMPORT_PROCESS_KEY);
-        sendImportProgressUpdate({ finished: true, lots: process?.lots || [] });
+    
+    // Если процесса нет, или он отложен, или закончен - выходим.
+    if (!process || process.state === 'postponed' || process.currentIndex >= process.lots.length) {
+        if (process && process.currentIndex >= process.lots.length) {
+            await chrome.storage.local.remove(IMPORT_PROCESS_KEY);
+            sendImportProgressUpdate({ finished: true, lots: process.lots || [] });
+        }
         return;
     }
 
     const currentLot = process.lots[process.currentIndex];
     
-    // Если лот уже успешно создан, пропускаем его
-    if (currentLot.status === 'success') {
+    // Если лот уже успешно создан или пропущен, переходим к следующему
+    if (currentLot.status === 'success' || currentLot.status === 'skipped') {
         process.currentIndex++;
         await chrome.storage.local.set({ [IMPORT_PROCESS_KEY]: process });
         processNextLotImport(); // Сразу переходим к следующему
@@ -455,14 +459,14 @@ async function processNextLotImport() {
         await chrome.storage.local.set({ [IMPORT_PROCESS_KEY]: process });
         sendImportProgressUpdate(process);
         
-        // Если это была 5-я попытка, не делаем таймаут, ждем команды от пользователя
+        // Если это была не последняя попытка, делаем таймаут
         if (currentLot.retries < RETRY_LIMIT) {
             setTimeout(processNextLotImport, RETRY_DELAY);
         }
     }
 }
 
-// --- КОНЕЦ НОВОГО БЛОКА ---
+// --- КОНЕЦ ИЗМЕНЕННОГО БЛОКА ---
 
 
 // --- Главный обработчик сообщений ---
@@ -537,7 +541,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true;
     }
 
-    // --- НОВЫЙ БЛОК: LOT IO HANDLERS ---
+    // --- ИЗМЕНЕННЫЙ БЛОК: LOT IO HANDLERS ---
     if (request.action === 'getLotForExport') {
         (async () => {
             try {
@@ -558,6 +562,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'startLotImport') {
         (async () => {
             const importProcess = {
+                name: request.fileName || `Импорт от ${new Date().toLocaleString()}`,
+                state: 'running', // 'running', 'postponed'
                 lots: request.lots.map(lot => ({ ...lot, status: 'pending', retries: 0, error: null })),
                 currentIndex: 0
             };
@@ -572,6 +578,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         (async () => {
              const { [IMPORT_PROCESS_KEY]: process } = await chrome.storage.local.get(IMPORT_PROCESS_KEY);
              if (process) {
+                process.state = 'running'; // Меняем статус на "в процессе"
                 // Сбрасываем счетчик попыток для всех лотов с ошибками
                 process.lots.forEach(lot => {
                     if (lot.status === 'error') {
@@ -581,7 +588,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 });
                 await chrome.storage.local.set({ [IMPORT_PROCESS_KEY]: process });
                 sendResponse({ success: true });
-                processNextLotImport();
+                processNextLotImport(); // Запускаем процесс
              } else {
                 sendResponse({ success: false, error: 'Процесс импорта не найден.' });
              }
@@ -593,7 +600,44 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         chrome.storage.local.remove(IMPORT_PROCESS_KEY).then(() => sendResponse({success: true}));
         return true;
     }
-    // --- КОНЕЦ НОВОГО БЛОКА ---
+
+    if (request.action === 'postponeLotImport') {
+        (async () => {
+            const { [IMPORT_PROCESS_KEY]: process } = await chrome.storage.local.get(IMPORT_PROCESS_KEY);
+            if (process) {
+                process.state = 'postponed';
+                await chrome.storage.local.set({ [IMPORT_PROCESS_KEY]: process });
+                sendResponse({ success: true });
+            } else {
+                sendResponse({ success: false, error: 'Процесс для откладывания не найден.' });
+            }
+        })();
+        return true;
+    }
+
+    if (request.action === 'skipLotImportItem') {
+        (async () => {
+            const { [IMPORT_PROCESS_KEY]: process } = await chrome.storage.local.get(IMPORT_PROCESS_KEY);
+            if (process && process.lots[request.index]) {
+                const lot = process.lots[request.index];
+                lot.status = 'skipped';
+                lot.error = 'Пропущено пользователем';
+                await chrome.storage.local.set({ [IMPORT_PROCESS_KEY]: process });
+                sendImportProgressUpdate(process);
+                
+                // Если пропущенный лот был текущим, немедленно запускаем следующий
+                if (process.currentIndex === request.index) {
+                    processNextLotImport();
+                }
+
+                sendResponse({ success: true });
+            } else {
+                sendResponse({ success: false, error: 'Лот для пропуска не найден.' });
+            }
+        })();
+        return true;
+    }
+    // --- КОНЕЦ ИЗМЕНЕННОГО БЛОКА ---
 
     // ACCOUNT & COOKIE HANDLERS
     if (request.action === 'getGoldenKey') {
@@ -721,7 +765,7 @@ function setupInitialAlarms() {
         }
         // <-- НОВЫЙ БЛОК ДЛЯ АВТООТВЕТЧИКА -->
         const autoReplies = settings.fpToolsAutoReplies || {};
-        if (autoReplies.greetingEnabled || autoReplies.keywordsEnabled || autoReplies.autoReviewEnabled) {
+        if (autoReplies.greetingEnabled || autoReplies.keywordsEnabled || autoReplies.autoReviewEnabled || autoReplies.bonusForReviewEnabled) {
             chrome.alarms.create(AUTO_RESPONDER_ALARM_NAME, {
                 delayInMinutes: 1,
                 periodInMinutes: 0.25 // Каждые 15 секунд
@@ -774,7 +818,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
     // <-- НОВЫЙ БЛОК ДЛЯ УПРАВЛЕНИЯ БУДИЛЬНИКОМ АВТООТВЕТЧИКА -->
     if (changes.fpToolsAutoReplies) {
         const newSettings = changes.fpToolsAutoReplies.newValue || {};
-        const isEnabled = newSettings.greetingEnabled || newSettings.keywordsEnabled || newSettings.autoReviewEnabled;
+        const isEnabled = newSettings.greetingEnabled || newSettings.keywordsEnabled || newSettings.autoReviewEnabled || newSettings.bonusForReviewEnabled;
 
         chrome.alarms.get(AUTO_RESPONDER_ALARM_NAME, (alarm) => {
             if (isEnabled && !alarm) {

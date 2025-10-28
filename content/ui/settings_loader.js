@@ -15,6 +15,7 @@ async function renderTemplateSettings() {
         const colorPickerHtml = isCustom ? `<input type="color" class="template-color-picker" value="${config.color}" data-key="${key}" data-custom="true">` : '';
         const deleteBtnHtml = isCustom ? `<button class="delete-custom-template-btn" data-id="${config.id}">🗑️</button>` : '';
 
+        // === ИЗМЕНЕНИЕ ЗДЕСЬ ===
         item.innerHTML = `
             <div class="template-item-header">
                 <input type="checkbox" class="template-toggle" data-key="${key}" data-custom="${isCustom}" ${config.enabled ? 'checked' : ''}>
@@ -22,8 +23,12 @@ async function renderTemplateSettings() {
                 <span class="template-label" contenteditable="true" data-key="${key}" data-custom="${isCustom}">${config.label}</span>
                 ${deleteBtnHtml}
             </div>
-            <textarea class="template-input template-text" data-key="${key}" data-custom="${isCustom}" placeholder="Текст шаблона...">${config.text}</textarea>
+            <div class="textarea-with-controls">
+                <textarea class="template-input template-text" data-key="${key}" data-custom="${isCustom}" placeholder="Текст шаблона...">${config.text}</textarea>
+                <button class="btn add-image-btn" title="Добавить изображение">🖼️</button>
+            </div>
         `;
+        // === КОНЕЦ ИЗМЕНЕНИЯ ===
         container.appendChild(item);
     };
 
@@ -88,9 +93,17 @@ async function setupTemplateSettingsHandlers() {
             const id = e.target.dataset.id;
             templateSettings.custom = templateSettings.custom.filter(t => t.id !== id);
             await saveTemplateSettings();
-            await renderTemplateSettings();
+            await renderTemplateSettings(); // Re-render the list
             await addChatTemplateButtons();
         }
+        // === НОВАЯ ЛОГИКА ===
+        if (e.target.classList.contains('add-image-btn')) {
+            const textarea = e.target.previousElementSibling;
+            if (textarea && textarea.tagName === 'TEXTAREA') {
+                handleImageAddClick(textarea);
+            }
+        }
+        // === КОНЕЦ НОВОЙ ЛОГИКИ ===
     });
     
     document.getElementById('addCustomTemplateBtn').onclick = async () => {
@@ -102,8 +115,8 @@ async function setupTemplateSettingsHandlers() {
             enabled: true
         });
         await saveTemplateSettings();
-        await renderTemplateSettings();
-        await setupTemplateSettingsHandlers();
+        await renderTemplateSettings(); // Re-render to add the new item
+        await setupTemplateSettingsHandlers(); // Re-attach handlers if needed, though delegation should handle it
     };
 
     templatesPage.querySelectorAll('input[name="templatePos"]').forEach(radio => {
@@ -128,9 +141,7 @@ async function loadSavedSettings() {
         'fpToolsPopupPosition', 'fpToolsPopupSize', 'enableRedesignedHomepage', 'fpToolsPopupDragged',
         'fpToolsAccounts', 'showSalesStats', 'hideBalance', 'viewSellersPromo', 'notificationSound',
         'fpToolsDiscord',
-        // New settings for selective bump
-        'fpToolsSelectiveBumpEnabled', 'fpToolsSelectedBumpCategories', 'fpToolsBumpOnlyAutoDelivery', // --- ИЗМЕНЕНО ---
-        // New settings for auto-replies
+        'fpToolsSelectiveBumpEnabled', 'fpToolsSelectedBumpCategories', 'fpToolsBumpOnlyAutoDelivery',
         'autoReviewEnabled', 'reviewTemplates', 'greetingEnabled', 'greetingText', 'keywordsEnabled', 'keywords'
     ]);
     
@@ -188,7 +199,6 @@ async function loadSavedSettings() {
         toggleDiscordControls();
     }
     
-    // Load Auto-Reply Settings
     if (typeof initializeAutoReviewUI === 'function') {
         initializeAutoReviewUI(settings);
     }
@@ -210,11 +220,10 @@ async function loadSavedSettings() {
     }
     updateThemePreview();
 
-    // Autobump settings
     document.getElementById('autoBumpEnabled').checked = settings.autoBumpEnabled === true;
     document.getElementById('autoBumpCooldown').value = settings.autoBumpCooldown || 245;
     document.getElementById('selectiveBumpEnabled').checked = settings.fpToolsSelectiveBumpEnabled === true;
-    document.getElementById('bumpOnlyAutoDelivery').checked = settings.fpToolsBumpOnlyAutoDelivery === true; // --- НОВАЯ СТРОКА ---
+    document.getElementById('bumpOnlyAutoDelivery').checked = settings.fpToolsBumpOnlyAutoDelivery === true;
 
     document.getElementById('enableRedesignedHomepage').checked = settings.enableRedesignedHomepage !== false;
 
@@ -265,5 +274,4 @@ async function loadSavedSettings() {
     if (soundRadio) {
         soundRadio.checked = true;
     }
-    
 }

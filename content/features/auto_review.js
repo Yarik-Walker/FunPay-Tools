@@ -2,26 +2,47 @@
 
 /**
  * Инициализирует UI для всех функций авто-ответов в настройках FP Tools
- * @param {object} settings - Загруженные настройки из storage (этот параметр больше не нужен, функция сама загрузит)
  */
 async function initializeAutoReviewUI() {
     const page = document.querySelector('.fp-tools-page-content[data-page="auto_review"]');
     if (!page || page.dataset.initialized) return;
 
-    // Загружаем сохраненные настройки
     const { fpToolsAutoReplies = {} } = await chrome.storage.local.get('fpToolsAutoReplies');
     
-    // Устанавливаем значения по умолчанию, если их нет
     const settings = {
         autoReviewEnabled: fpToolsAutoReplies.autoReviewEnabled || false,
         reviewTemplates: fpToolsAutoReplies.reviewTemplates || {},
         greetingEnabled: fpToolsAutoReplies.greetingEnabled || false,
         greetingText: fpToolsAutoReplies.greetingText || 'Здравствуйте! Чем могу помочь?',
         keywordsEnabled: fpToolsAutoReplies.keywordsEnabled || false,
-        keywords: fpToolsAutoReplies.keywords || []
+        keywords: fpToolsAutoReplies.keywords || [],
+        bonusForReviewEnabled: fpToolsAutoReplies.bonusForReviewEnabled || false,
+        bonusMode: fpToolsAutoReplies.bonusMode || 'single',
+        singleBonusText: fpToolsAutoReplies.singleBonusText || '',
+        randomBonuses: fpToolsAutoReplies.randomBonuses || []
     };
 
-    // Заполняем поля в UI
+    document.getElementById('bonusForReviewEnabled').checked = settings.bonusForReviewEnabled;
+    const bonusModeRadio = document.querySelector(`input[name="bonusMode"][value="${settings.bonusMode}"]`);
+    if (bonusModeRadio) bonusModeRadio.checked = true;
+    document.getElementById('singleBonusText').value = settings.singleBonusText;
+    
+    const singleBonusContainer = document.getElementById('singleBonusContainer');
+    const randomBonusContainer = document.getElementById('randomBonusContainer');
+    
+    const toggleBonusContainers = () => {
+        const mode = document.querySelector('input[name="bonusMode"]:checked').value;
+        singleBonusContainer.style.display = mode === 'single' ? 'block' : 'none';
+        randomBonusContainer.style.display = mode === 'random' ? 'block' : 'none';
+    };
+    
+    document.querySelectorAll('input[name="bonusMode"]').forEach(radio => {
+        radio.addEventListener('change', toggleBonusContainers);
+    });
+    
+    toggleBonusContainers();
+    renderBonusesList(settings.randomBonuses);
+
     document.getElementById('autoReviewEnabled').checked = settings.autoReviewEnabled;
     for (let i = 1; i <= 5; i++) {
         const input = document.getElementById(`fpt-review-${i}`);
@@ -33,15 +54,15 @@ async function initializeAutoReviewUI() {
     
     renderKeywordsList(settings.keywords);
 
-    // --- Обработчики для сохранения настроек ---
-    
-    // Общий обработчик для всех простых полей с задержкой (debounce)
     let saveTimeout;
     const saveOnChange = async () => {
         clearTimeout(saveTimeout);
         saveTimeout = setTimeout(async () => {
-            const currentKeywords = (await chrome.storage.local.get('fpToolsAutoReplies')).fpToolsAutoReplies?.keywords || [];
+            const storedData = await chrome.storage.local.get('fpToolsAutoReplies');
+            const currentSettings = storedData.fpToolsAutoReplies || {};
+            
             const newSettings = {
+                ...currentSettings,
                 autoReviewEnabled: document.getElementById('autoReviewEnabled').checked,
                 reviewTemplates: {
                     '5': document.getElementById('fpt-review-5').value,
@@ -53,20 +74,31 @@ async function initializeAutoReviewUI() {
                 greetingEnabled: document.getElementById('greetingEnabled').checked,
                 greetingText: document.getElementById('greetingText').value,
                 keywordsEnabled: document.getElementById('keywordsEnabled').checked,
-                keywords: currentKeywords 
+                bonusForReviewEnabled: document.getElementById('bonusForReviewEnabled').checked,
+                bonusMode: document.querySelector('input[name="bonusMode"]:checked').value,
+                singleBonusText: document.getElementById('singleBonusText').value,
             };
             await chrome.storage.local.set({ fpToolsAutoReplies: newSettings });
             console.log("FP Tools: Auto-reply settings saved.");
-        }, 500); // Сохраняем через 500мс после последнего изменения
+        }, 500);
     };
 
-    // Привязываем обработчик ко всем полям
-    page.querySelectorAll('input[type="checkbox"], textarea').forEach(el => {
+    page.querySelectorAll('input[type="checkbox"], textarea, input[name="bonusMode"]').forEach(el => {
         el.addEventListener('change', saveOnChange);
         el.addEventListener('input', saveOnChange);
     });
 
-    // Обработчики для ключевых слов (сохраняют сразу)
+    // === НОВАЯ ЛОГИКА ДЛЯ КНОПОК ИЗОБРАЖЕНИЙ ===
+    page.addEventListener('click', (e) => {
+        if (e.target.classList.contains('add-image-btn')) {
+            const textarea = e.target.previousElementSibling;
+            if (textarea && textarea.tagName === 'TEXTAREA') {
+                handleImageAddClick(textarea);
+            }
+        }
+    });
+    // === КОНЕЦ НОВОЙ ЛОГИКИ ===
+
     document.getElementById('addKeywordBtn').addEventListener('click', async () => {
         const keyword = document.getElementById('newKeyword').value.trim().toLowerCase();
         const response = document.getElementById('newKeywordResponse').value.trim();
@@ -86,6 +118,36 @@ async function initializeAutoReviewUI() {
 
         document.getElementById('newKeyword').value = '';
         document.getElementById('newKeywordResponse').value = '';
+    });
+    
+    document.getElementById('addBonusBtn').addEventListener('click', async () => {
+        const bonusText = document.getElementById('newBonusText').value.trim();
+        if (!bonusText) {
+            showNotification('Текст бонуса не может быть пустым.', true);
+            return;
+        }
+        
+        const { fpToolsAutoReplies = {} } = await chrome.storage.local.get('fpToolsAutoReplies');
+        const bonuses = fpToolsAutoReplies.randomBonuses || [];
+        bonuses.push(bonusText);
+        fpToolsAutoReplies.randomBonuses = bonuses;
+
+        await chrome.storage.local.set({ fpToolsAutoReplies });
+        renderBonusesList(bonuses);
+        document.getElementById('newBonusText').value = '';
+    });
+
+    document.getElementById('bonus-list-container').addEventListener('click', async (e) => {
+        if (e.target.classList.contains('delete-bonus-btn')) {
+            const index = parseInt(e.target.dataset.index, 10);
+            const { fpToolsAutoReplies = {} } = await chrome.storage.local.get('fpToolsAutoReplies');
+            const bonuses = fpToolsAutoReplies.randomBonuses || [];
+            bonuses.splice(index, 1);
+            fpToolsAutoReplies.randomBonuses = bonuses;
+            
+            await chrome.storage.local.set({ fpToolsAutoReplies });
+            renderBonusesList(bonuses);
+        }
     });
 
     document.getElementById('keywords-list-container').addEventListener('click', async (e) => {
@@ -125,46 +187,23 @@ function renderKeywordsList(keywords) {
     `).join('');
 }
 
-/**
- * Старая логика наблюдателя удалена. Теперь все происходит в background.
- * Эта функция оставлена пустой, чтобы не вызывать ошибок в других частях кода, если они ее вызывают.
- */
+function renderBonusesList(bonuses) {
+    const listContainer = document.getElementById('bonus-list-container');
+    if (!listContainer) return;
+    
+    if (!bonuses || bonuses.length === 0) {
+        listContainer.innerHTML = '<p class="template-info" style="text-align:center;">Добавьте хотя бы один бонус.</p>';
+        return;
+    }
+
+    listContainer.innerHTML = bonuses.map((text, index) => `
+        <div class="bonus-item">
+            <span class="bonus-text">${text}</span>
+            <button class="btn btn-default delete-bonus-btn" data-index="${index}">Удалить</button>
+        </div>
+    `).join('');
+}
+
 async function initializeAutoReview() {
-    // Эта функция больше не нужна, так как вся логика перенесена в background.js
-}
-
-/**
- * Старая логика наблюдателя удалена.
- */
-async function startReviewMonitoring() {
-    // Эта функция больше не нужна
-}
-
-/**
- * Старая логика наблюдателя удалена.
- */
-function checkForNewReviews(reviewTemplates) {
-    // Эта функция больше не нужна
-}
-
-/**
- * Старая логика наблюдателя удалена.
- */
-function detectReviewRating(reviewElement) {
-    // Эта функция больше не нужна
-}
-
-/**
- * Старая логика наблюдателя удалена.
- */
-function generateReviewId(reviewElement) {
-    // Эта функция больше не нужна
-}
-
-/**
- * Старая логика автоответчика в чате удалена.
- */
-async function handleChatAutoResponder(messageText, messageId) {
-    // Эта функция больше не нужна
-    return false;
+    // This function is no longer needed as all logic is in background.js
 }

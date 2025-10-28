@@ -105,12 +105,52 @@ async function replaceTemplateVariables(template) {
 
 async function applyTemplateToInput(chatInput, templateContent) {
     if (!chatInput || templateContent === undefined) return;
-    const processedText = await replaceTemplateVariables(templateContent);
-    chatInput.value = processedText;
+    
+    let processedText = await replaceTemplateVariables(templateContent);
+
+    // === НОВАЯ ЛОГИКА ОБРАБОТКИ ИЗОБРАЖЕНИЙ ===
+    const imageRegex = /\[image:(data:image\/[^;]+;base64,[^\]]+)\]/g;
+    let imageMatches;
+    const imagesToPaste = [];
+
+    // Извлекаем все Data URL и заменяем их на пустую строку в тексте
+    processedText = processedText.replace(imageRegex, (match, dataUrl) => {
+        imagesToPaste.push(dataUrl);
+        return ''; // Удаляем плейсхолдер из текста
+    });
+    
+    // Вставляем картинки через симуляцию paste event
+    if (imagesToPaste.length > 0) {
+        for (const dataUrl of imagesToPaste) {
+            try {
+                const blob = await (await fetch(dataUrl)).blob();
+                const file = new File([blob], "image.png", { type: blob.type });
+
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(file);
+
+                const pasteEvent = new ClipboardEvent('paste', {
+                    clipboardData: dataTransfer,
+                    bubbles: true,
+                    cancelable: true
+                });
+                chatInput.dispatchEvent(pasteEvent);
+                // Небольшая задержка, чтобы FunPay успел обработать вставку
+                await new Promise(resolve => setTimeout(resolve, 100));
+            } catch (e) {
+                console.error("FP Tools: Ошибка при вставке изображения из шаблона", e);
+                showNotification("Не удалось вставить изображение из шаблона.", true);
+            }
+        }
+    }
+    // === КОНЕЦ НОВОЙ ЛОГИКИ ===
+
+    chatInput.value = processedText.trim(); // Устанавливаем оставшийся текст
     chatInput.focus();
     chatInput.dispatchEvent(new Event('input', { bubbles: true }));
     chatInput.selectionStart = chatInput.selectionEnd = chatInput.value.length;
 }
+
 
 function showEmptyTemplateModal(templateKey, isCustom) {
     const existingOverlay = document.querySelector('.fp-tools-empty-template-overlay');
@@ -122,7 +162,10 @@ function showEmptyTemplateModal(templateKey, isCustom) {
     modal.innerHTML = `
         <h4>Шаблон пуст</h4>
         <p>Хотите добавить текст для этой кнопки прямо сейчас?</p>
-        <textarea class="template-input" placeholder="Введите текст шаблона..."></textarea>
+        <div class="textarea-with-controls">
+            <textarea class="template-input" placeholder="Введите текст шаблона..."></textarea>
+            <button class="btn add-image-btn" title="Добавить изображение">🖼️</button>
+        </div>
         <div class="modal-actions">
             <button class="btn" id="empty-template-save">Сохранить</button>
             <button class="btn btn-default" id="empty-template-close">Закрыть</button>
@@ -132,13 +175,16 @@ function showEmptyTemplateModal(templateKey, isCustom) {
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
 
+    const textarea = modal.querySelector('textarea');
+    modal.querySelector('.add-image-btn').addEventListener('click', () => handleImageAddClick(textarea));
+
     const closeModal = () => overlay.remove();
     
     overlay.querySelector('#empty-template-close').addEventListener('click', closeModal);
     overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
 
     overlay.querySelector('#empty-template-save').addEventListener('click', async () => {
-        const newText = modal.querySelector('textarea').value;
+        const newText = textarea.value;
         if (newText.trim()) {
             if (isCustom) {
                 const template = templateSettings.custom.find(t => t.id === templateKey);
@@ -173,6 +219,10 @@ async function useTemplate(templateConfig) {
     await applyTemplateToInput(chatInput, templateConfig.text);
 
     if (!sendTemplatesImmediately) return;
+
+    // Если в шаблоне были только картинки, текст может быть пустым, но нам все равно надо "отправить"
+    const hasContent = chatInput.value.trim() !== '' || /\[image:data:image\/[^;]+;base64,[^\]]+\]/.test(templateConfig.text);
+    if (!hasContent) return;
 
     const chatForm = chatInput.closest('form');
     if (!chatForm) return;
@@ -252,4 +302,4 @@ async function addChatTemplateButtons() {
             buttonsContainer.appendChild(btn);
         }
     });
-} 
+}

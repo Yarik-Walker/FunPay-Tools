@@ -77,13 +77,12 @@ async function sendMessage(chatId, text, auth) {
     console.log(`FP Tools: Сообщение отправлено в чат ${chatId}`);
 }
 
-// ИСПРАВЛЕННАЯ ФУНКЦИЯ
 async function sendReviewReply(orderId, text, auth) {
     const payload = new URLSearchParams({
         orderId: orderId,
         text: text,
-        rating: 5, // Для ответа это поле не важно, но его нужно отправить
-        authorId: auth.userId, // <-- ДОБАВЛЕНО ID АВТОРА
+        rating: 5,
+        authorId: auth.userId,
         csrf_token: auth.csrf_token
     });
     const response = await fetch("https://funpay.com/orders/review", {
@@ -106,7 +105,7 @@ async function handleGreeting(messageData, auth, settings) {
     if (!settings.greetingEnabled || !settings.greetingText) return;
 
     let greetedUsers = settings.greetedUsers || [];
-    if (greetedUsers.includes(messageData.chatId)) return; // Уже здоровались
+    if (greetedUsers.includes(messageData.chatId)) return;
 
     let greeting = settings.greetingText.replace(/{buyername}/g, messageData.buyerName);
     
@@ -130,7 +129,7 @@ async function handleKeywords(messageData, auth, settings) {
             let responseText = rule.response.replace(/{buyername}/g, messageData.buyerName);
             try {
                 await sendMessage(messageData.chatId, responseText, auth);
-                return; // Отправляем только один ответ
+                return;
             } catch (e) {
                 console.error("FP Tools: Ошибка отправки ответа по ключу:", e);
             }
@@ -138,8 +137,10 @@ async function handleKeywords(messageData, auth, settings) {
     }
 }
 
+// --- MODIFIED FUNCTION ---
 async function handleReview(messageData, auth, settings) {
-    if (!settings.autoReviewEnabled) return;
+    // Выходим, если обе функции (ответ на отзыв и бонус) отключены
+    if (!settings.autoReviewEnabled && !settings.bonusForReviewEnabled) return;
 
     if (!REGEX.NEW_FEEDBACK.test(messageData.messageText) && !REGEX.FEEDBACK_CHANGED.test(messageData.messageText)) {
         return;
@@ -147,7 +148,7 @@ async function handleReview(messageData, auth, settings) {
 
     const orderIdMatch = messageData.messageText.match(REGEX.ORDER_ID);
     if (!orderIdMatch) return;
-    const orderId = orderIdMatch[1]; // <-- ИСПРАВЛЕНО: [1] чтобы получить чистый ID без #
+    const orderId = orderIdMatch[1];
 
     try {
         const orderPageResponse = await fetch(`https://funpay.com/orders/${orderId}/`, {
@@ -158,28 +159,59 @@ async function handleReview(messageData, auth, settings) {
         const orderPageHtml = await orderPageResponse.text();
         const stars = await parseHtmlViaOffscreen(orderPageHtml, 'parseOrderPageForReview');
 
-        if (stars && settings.reviewTemplates && settings.reviewTemplates[stars]) {
+        if (stars === null) {
+             console.log(`FP Tools: Не удалось определить оценку для заказа #${orderId} или отзыв оставлен вами.`);
+             return;
+        }
+
+        // 1. Логика ответа НА отзыв (остается без изменений)
+        if (settings.autoReviewEnabled && settings.reviewTemplates && settings.reviewTemplates[stars]) {
             const replyText = settings.reviewTemplates[stars];
-            if (replyText.trim()) { // Проверяем, что шаблон не пустой
-                await sendReviewReply(orderId, replyText, auth);
+            if (replyText.trim()) {
+                try {
+                    await sendReviewReply(orderId, replyText, auth);
+                } catch (e) {
+                     console.error(`FP Tools: Ошибка при отправке ответа на отзыв #${orderId}:`, e);
+                }
             }
         }
+        
+        // 2. Новая логика отправки бонуса В ЧАТ
+        if (settings.bonusForReviewEnabled && stars === 5) {
+            let bonusText = '';
+            if (settings.bonusMode === 'single' && settings.singleBonusText) {
+                bonusText = settings.singleBonusText;
+            } else if (settings.bonusMode === 'random' && settings.randomBonuses && settings.randomBonuses.length > 0) {
+                const randomIndex = Math.floor(Math.random() * settings.randomBonuses.length);
+                bonusText = settings.randomBonuses[randomIndex];
+            }
+
+            if (bonusText && bonusText.trim()) {
+                try {
+                    // Используем chatId из messageData, чтобы отправить сообщение в нужный чат
+                    await sendMessage(messageData.chatId, bonusText, auth);
+                    console.log(`FP Tools: Отправлен бонус за 5-звёздочный отзыв к заказу #${orderId} в чат ${messageData.chatId}.`);
+                } catch (e) {
+                    console.error(`FP Tools: Ошибка при отправке бонуса за отзыв #${orderId}:`, e);
+                }
+            }
+        }
+
     } catch (e) {
-        console.error(`FP Tools: Ошибка при обработке отзыва для заказа #${orderId}:`, e);
+        console.error(`FP Tools: Общая ошибка при обработке отзыва для заказа #${orderId}:`, e);
     }
 }
+// --- END MODIFIED FUNCTION ---
 
-// --- ГЛАВНЫЙ ЦИКЛ (АНАЛОГ RUNNER) ---
 let lastRunnerTag = null;
 
 export async function runAutoResponderCycle() {
     console.log("FP Tools: Запуск цикла автоответчика...");
     
     const { fpToolsAutoReplies = {} } = await chrome.storage.local.get('fpToolsAutoReplies');
-    const isAnyFeatureEnabled = fpToolsAutoReplies.greetingEnabled || fpToolsAutoReplies.keywordsEnabled || fpToolsAutoReplies.autoReviewEnabled;
+    const isAnyFeatureEnabled = fpToolsAutoReplies.greetingEnabled || fpToolsAutoReplies.keywordsEnabled || fpToolsAutoReplies.autoReviewEnabled || fpToolsAutoReplies.bonusForReviewEnabled;
     
     if (!isAnyFeatureEnabled) {
-        // console.log("FP Tools: Все функции автоответчика отключены. Цикл пропущен.");
         return;
     }
 
@@ -217,7 +249,6 @@ export async function runAutoResponderCycle() {
         const chatObject = data.objects.find(o => o.type === "chat_bookmarks");
 
         if (!chatObject || !chatObject.data || !chatObject.data.html) {
-            // console.log("FP Tools: Нет обновлений в чатах.");
             if(chatObject) lastRunnerTag = chatObject.tag;
             return;
         }
@@ -228,7 +259,6 @@ export async function runAutoResponderCycle() {
         let processedMessageIds = fpToolsAutoReplies.processedMessageIds || [];
         
         for (const chat of parsedChats) {
-            // Пропускаем, если сообщение не новое/непрочитанное или уже обработано
             if (!chat.isUnread || processedMessageIds.includes(chat.msgId)) {
                 continue;
             }
@@ -240,16 +270,13 @@ export async function runAutoResponderCycle() {
                 buyerName: chat.chatName
             };
 
-            // Запускаем обработчики
             await handleGreeting(messageData, auth, fpToolsAutoReplies);
             await handleKeywords(messageData, auth, fpToolsAutoReplies);
             await handleReview(messageData, auth, fpToolsAutoReplies);
 
-            // Помечаем сообщение как обработанное
             processedMessageIds.push(chat.msgId);
         }
 
-        // Очищаем старые ID, чтобы не засорять хранилище
         if (processedMessageIds.length > 200) {
             processedMessageIds = processedMessageIds.slice(-200);
         }

@@ -1,5 +1,7 @@
 // content/features/lot_io.js
 
+const IMPORT_PROCESS_KEY = 'fpToolsLotImportProcess'; // <-- ДОБАВЛЕНА ЭТА СТРОКА
+
 // --- Функции для управления UI прогресс-бара экспорта ---
 
 function createExportProgressBar() {
@@ -70,12 +72,7 @@ function initializeLotIO() {
         }
     });
 
-    // Проверка на наличие незавершенного импорта при загрузке
-    chrome.storage.local.get('fpToolsLotImportProcess', (result) => {
-        if (result.fpToolsLotImportProcess) {
-            updateImportProgressUI(result.fpToolsLotImportProcess);
-        }
-    });
+    renderPendingImports();
 
     page.dataset.initialized = 'true';
 }
@@ -204,7 +201,7 @@ function handleFileImport(event) {
                 throw new Error("Файл пуст или имеет неверный формат.");
             }
             if (confirm(`Вы уверены, что хотите импортировать ${lots.length} лотов? Это действие создаст новые предложения на вашем аккаунте.`)) {
-                await chrome.runtime.sendMessage({ action: 'startLotImport', lots: lots });
+                await chrome.runtime.sendMessage({ action: 'startLotImport', lots: lots, fileName: file.name });
             }
         } catch (error) {
             showNotification(`Ошибка чтения файла: ${error.message}`, true);
@@ -222,15 +219,18 @@ function updateImportProgressUI(processData) {
     const summary = modal.querySelector('#lot-io-progress-summary');
     const continueBtn = modal.querySelector('#lot-io-continue-btn');
     const cancelBtn = modal.querySelector('#lot-io-cancel-btn');
+    const postponeControls = modal.querySelector('#lot-io-postpone-controls');
 
     let html = '';
     let successCount = 0;
     let pendingCount = 0;
     let errorCount = 0;
+    let skippedCount = 0;
 
     processData.lots.forEach((lot, index) => {
         let statusClass = '';
         let statusText = '';
+        let skipButton = '';
         switch (lot.status) {
             case 'success':
                 statusClass = 'status-success';
@@ -241,33 +241,49 @@ function updateImportProgressUI(processData) {
                 statusClass = 'status-pending';
                 statusText = `В очереди (попытка ${lot.retries})...`;
                 pendingCount++;
+                skipButton = `<button class="btn btn-default skip-lot-btn" data-index="${index}">↪</button>`;
                 break;
             case 'error':
                 statusClass = 'status-error';
                 statusText = `Ошибка: ${lot.error}`;
                 errorCount++;
+                skipButton = `<button class="btn btn-default skip-lot-btn" data-index="${index}">Пропустить</button>`;
+                break;
+            case 'skipped':
+                statusClass = 'status-skipped';
+                statusText = 'Пропущено';
+                skippedCount++;
                 break;
         }
 
         html += `
             <div class="lot-io-progress-item ${statusClass}">
                 <span class="progress-item-title">${lot.sourceTitle || 'Лот без названия'}</span>
-                <span class="progress-item-status">${statusText}</span>
+                <div class="progress-item-status-wrapper">
+                    <span class="progress-item-status">${statusText}</span>
+                    ${skipButton}
+                </div>
             </div>
         `;
     });
     listContainer.innerHTML = html;
 
-    summary.textContent = `Готово: ${successCount} | В очереди: ${pendingCount} | Ошибки: ${errorCount} | Всего: ${processData.lots.length}`;
+    summary.textContent = `Готово: ${successCount} | В очереди: ${pendingCount} | Ошибки: ${errorCount} | Пропущено: ${skippedCount} | Всего: ${processData.lots.length}`;
     
-    if (errorCount > 0 && pendingCount === 0) {
+    if (errorCount > 0 && pendingCount === 0 && !processData.finished) {
         continueBtn.style.display = 'inline-block';
     } else {
         continueBtn.style.display = 'none';
     }
+    
+    if (processData.state === 'postponed' || processData.finished) {
+        postponeControls.style.display = 'none';
+    } else {
+        postponeControls.style.display = 'block';
+    }
 
     if (processData.finished) {
-        summary.textContent = `Импорт завершен! Успешно: ${successCount}, ошибки: ${errorCount}.`;
+        summary.textContent = `Импорт завершен! Успешно: ${successCount}, ошибки: ${errorCount}, пропущено: ${skippedCount}.`;
         continueBtn.style.display = 'none';
         cancelBtn.textContent = 'Закрыть';
         cancelBtn.onclick = () => modal.style.display = 'none';
@@ -283,5 +299,64 @@ function updateImportProgressUI(processData) {
             chrome.runtime.sendMessage({ action: 'resumeLotImport' });
             continueBtn.style.display = 'none';
         };
+    }
+
+    // Обработчики для новых кнопок
+    listContainer.querySelectorAll('.skip-lot-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const index = parseInt(btn.dataset.index, 10);
+            chrome.runtime.sendMessage({ action: 'skipLotImportItem', index });
+        });
+    });
+
+    const postponeBtn = document.getElementById('lot-io-postpone-btn');
+    if (postponeBtn) {
+        postponeBtn.onclick = () => {
+            if (confirm('Если процесс импорта завис на 5-й попытке, возможно, FunPay выдал лимит на создание лотов. Отложить импорт на 24 часа?')) {
+                chrome.runtime.sendMessage({ action: 'postponeLotImport' }).then(() => {
+                    modal.style.display = 'none';
+                    showNotification('Импорт отложен. Вы можете возобновить его на этой же вкладке.', false);
+                    renderPendingImports(); // Обновляем список отложенных
+                });
+            }
+        };
+    }
+}
+
+async function renderPendingImports() {
+    const container = document.getElementById('lot-io-pending-imports-list');
+    if (!container) return;
+
+    try {
+        const { [IMPORT_PROCESS_KEY]: process } = await chrome.storage.local.get(IMPORT_PROCESS_KEY);
+
+        if (process && process.state === 'postponed') {
+            container.innerHTML = `
+                <div class="pending-import-item">
+                    <span class="pending-import-name">${process.name}</span>
+                    <div class="pending-import-actions">
+                        <button class="btn resume-import-btn">Продолжить</button>
+                        <button class="btn btn-default delete-import-btn">Удалить</button>
+                    </div>
+                </div>
+            `;
+        } else {
+            container.innerHTML = '<p class="template-info">Здесь будут отображаться отложенные процессы импорта.</p>';
+        }
+        
+        container.querySelector('.resume-import-btn')?.addEventListener('click', () => {
+            chrome.runtime.sendMessage({ action: 'resumeLotImport' });
+            container.innerHTML = '<p class="template-info">Возобновление...</p>';
+        });
+        
+        container.querySelector('.delete-import-btn')?.addEventListener('click', () => {
+            if(confirm('Удалить этот отложенный импорт?')) {
+                chrome.runtime.sendMessage({ action: 'cancelLotImport' });
+                renderPendingImports();
+            }
+        });
+
+    } catch (error) {
+        container.innerHTML = `<p class="template-info" style="color: #ff6b6b;">Ошибка загрузки отложенных импортов: ${error.message}</p>`;
     }
 }

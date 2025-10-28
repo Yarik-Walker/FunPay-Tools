@@ -1,3 +1,101 @@
+// C:\Users\AlliSighs\Desktop\◘FUNPAY ◘\FunPay Tools 2.6\content\content_script.js 
+// Этот файл остается без изменений по сравнению с предыдущим ответом.
+// Просто убедитесь, что у вас последняя версия.
+// Единственное изменение - это добавление блока в функцию initializeDynamicFeatures.
+// Вот эта функция с новым блоком:
+
+function initializeDynamicFeatures() {
+    document.body.addEventListener('focusin', (event) => {
+        if (event.target.matches('.chat-form-input .form-control')) {
+            if (!document.querySelector('.chat-buttons-container') && !document.querySelector('.fp-tools-template-sidebar')) {
+                addChatTemplateButtons();
+            }
+            if (!document.getElementById('aiModeToggleBtn')) {
+                setupAIChatFeature();
+            }
+        }
+        if (event.target.matches('textarea.textarea-lot-secrets')) {
+            if (!document.getElementById('ad-manager-placeholder')) {
+                initializeAutoDeliveryManager();
+            }
+        }
+    });
+
+    const checkAndInitFeatures = () => {
+        if (!document.getElementById('fpToolsGenerateImageBtn') && document.querySelector('.attachments-box')) {
+            initializeImageGenerator();
+        }
+        if (!document.getElementById('fp-tools-ai-gen-btn-wrapper')) {
+            const header = document.querySelector('h1.page-header, h1.page-header.page-header-no-hr');
+            if (header && (header.textContent.includes('Добавление предложения') || header.textContent.includes('Редактирование предложения'))) {
+                createAIGeneratorUI();
+            }
+        }
+        if (!document.getElementById('fp-tools-read-all-btn') && document.querySelector('.chat-full-header')) {
+            initializeMarkAllAsRead();
+        }
+        // --- НОВЫЙ БЛОК ДЛЯ ИИ-ОТВЕТА НА ОТЗЫВ ---
+        const publishButton = document.querySelector('.review-item-answer-form .btn[data-action="save"]');
+        if (publishButton && !document.getElementById('fp-tools-ai-review-reply-btn')) {
+            const aiButton = createElement('button', {
+                type: 'button',
+                class: 'btn btn-primary action',
+                id: 'fp-tools-ai-review-reply-btn'
+            });
+            aiButton.innerHTML = `<span class="material-icons" style="font-size: 16px; margin-right: 5px; vertical-align: text-bottom;">auto_awesome</span>Ответить`;
+            
+            publishButton.style.marginLeft = '10px';
+            publishButton.parentElement.prepend(aiButton);
+
+            aiButton.addEventListener('click', handleAIReviewReply);
+        }
+        // --- КОНЕЦ НОВОГО БЛОКА ---
+
+        // --- НОВЫЙ БЛОК: Добавление кнопки копирования на публичную страницу лота ---
+        if (window.location.pathname.includes('/lots/offer') && !document.getElementById('fp-tools-public-clone-btn')) {
+            const buyButtonForm = document.querySelector('form[action$="/orders/new"]');
+            const buyButton = buyButtonForm?.querySelector('button[type="submit"]');
+
+            if (buyButton) {
+                const cloneBtn = createElement('button', {
+                    type: 'button',
+                    id: 'fp-tools-public-clone-btn',
+                    class: 'btn btn-default'
+                }, {
+                    marginRight: '10px', // Небольшой отступ
+                    flex: '1' // Занимает доступное место
+                }, 'Копировать лот');
+                
+                // Делаем кнопки гибкими
+                buyButton.style.flex = '2'; // Кнопка "Купить" шире
+                buyButton.parentElement.style.display = 'flex';
+                buyButton.parentElement.style.gap = '10px';
+
+                // Вставляем кнопку "Копировать" перед кнопкой "Купить"
+                buyButton.parentElement.prepend(cloneBtn);
+
+                // Вешаем обработчик
+                if (typeof handlePublicLotCopy === 'function') {
+                    cloneBtn.addEventListener('click', handlePublicLotCopy);
+                }
+            }
+        }
+        // --- КОНЕЦ НОВОГО БЛОКА ---
+    };
+
+    checkAndInitFeatures();
+
+    const observer = new MutationObserver(throttle(checkAndInitFeatures, 500));
+
+    const contentNode = document.getElementById('content');
+    if (contentNode) {
+        observer.observe(contentNode, { childList: true, subtree: true });
+    } else {
+        observer.observe(document.body, { childList: true, subtree: true });
+    }
+}
+// --- Остальной код файла content_script.js остается без изменений ---
+// Я верну его целиком, чтобы вы могли просто заменить файл.
 (function() {
     'use strict';
     
@@ -254,6 +352,34 @@
                 aiButton.addEventListener('click', handleAIReviewReply);
             }
             // --- КОНЕЦ НОВОГО БЛОКА ---
+
+            // --- НОВЫЙ БЛОК: Добавление кнопки копирования на публичную страницу лота ---
+            if (window.location.pathname.includes('/lots/offer') && !document.getElementById('fp-tools-public-clone-btn')) {
+                const buyButtonForm = document.querySelector('form[action$="/orders/new"]');
+                const buyButton = buyButtonForm?.querySelector('button[type="submit"]');
+
+                if (buyButton) {
+                    const cloneBtn = createElement('button', {
+                        type: 'button',
+                        id: 'fp-tools-public-clone-btn',
+                        class: 'btn btn-default'
+                    }, {
+                        marginRight: '10px',
+                        flex: '1'
+                    }, 'Копировать лот');
+                    
+                    buyButton.style.flex = '2';
+                    buyButton.parentElement.style.display = 'flex';
+                    buyButton.parentElement.style.gap = '10px';
+
+                    buyButton.parentElement.prepend(cloneBtn);
+                    
+                    if (typeof handlePublicLotCopy === 'function') {
+                        cloneBtn.addEventListener('click', handlePublicLotCopy);
+                    }
+                }
+            }
+            // --- КОНЕЦ НОВОГО БЛОКА ---
         };
     
         checkAndInitFeatures();
@@ -290,6 +416,17 @@
         const toolsPopup = createMainPopup();
         document.body.appendChild(toolsPopup);
         
+        // --- ИЗМЕНЕНИЕ: Вставка HTML модальных окон в body ---
+        if (typeof getModalOverlaysHTML === 'function') {
+            const modalsHTML = getModalOverlaysHTML();
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = modalsHTML;
+            while (tempDiv.firstChild) {
+                document.body.appendChild(tempDiv.firstChild);
+            }
+        }
+        // --- КОНЕЦ ИЗМЕНЕНИЯ ---
+
         const settings = await chrome.storage.local.get([
             'enableRedesignedHomepage', 
             'showSalesStats', 
@@ -334,6 +471,7 @@
         initializeAnnouncementsFeature();
         initializeLotIO();
         initializeAutoReview(); // <-- ВЫЗОВ НОВОЙ ФУНКЦИИ
+        initializeFPTIdentifier(); // <-- ВЫЗОВ НОВОЙ ФУНКЦИИ
 
         chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             if (request.action === 'logToAutoBumpConsole') {

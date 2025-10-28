@@ -1,3 +1,53 @@
+// content/ui/main_popup.js
+
+function getModalOverlaysHTML() {
+    return `
+        <div class="fp-tools-modal-overlay" id="autobump-category-modal-overlay" style="display: none;"><div class="fp-tools-modal-content"><div class="fp-tools-modal-header"><h3>Выберите категории для поднятия</h3><button class="fp-tools-modal-close">&times;</button></div><div class="fp-tools-modal-body"><div class="autobump-modal-controls"><input type="text" id="autobump-category-search" placeholder="Поиск по категориям..."><button id="autobump-select-all" class="btn btn-default" style="padding: 6px 12px; font-size: 13px;">Выбрать всё</button></div><div id="autobump-category-list" class="autobump-category-list"></div></div><div class="fp-tools-modal-footer"><button id="autobump-category-save" class="btn">Сохранить</button></div></div></div>
+
+        <div class="fp-tools-modal-overlay" id="lot-io-export-modal" style="display: none;">
+            <div class="fp-tools-modal-content">
+                <div class="fp-tools-modal-header">
+                    <h3>Экспорт лотов</h3>
+                    <button class="fp-tools-modal-close">&times;</button>
+                </div>
+                <div class="fp-tools-modal-body">
+                    <p class="template-info">Выберите категории, лоты из которых вы хотите экспортировать в файл.</p>
+                    <div class="autobump-modal-controls">
+                        <button id="lot-io-select-all" class="btn btn-default" style="padding: 6px 12px; font-size: 13px; flex-grow:1;">Выбрать/снять все</button>
+                    </div>
+                    <div class="lot-io-category-list"></div>
+                    <div class="lot-io-warning">
+                        <span class="material-icons">warning</span>
+                        <span><b>Внимание!</b> Не закрывайте и не перезагружайте эту вкладку до завершения процесса экспорта.</span>
+                    </div>
+                </div>
+                <div class="fp-tools-modal-footer">
+                    <button id="lot-io-export-confirm" class="btn">Экспортировать</button>
+                </div>
+            </div>
+        </div>
+        <div class="fp-tools-modal-overlay" id="lot-io-import-progress-modal" style="display: none;">
+            <div class="fp-tools-modal-content">
+                <div class="fp-tools-modal-header">
+                    <h3>Прогресс импорта</h3>
+                </div>
+                <div class="fp-tools-modal-body">
+                    <div id="lot-io-progress-summary">Подготовка...</div>
+                    <div class="lot-io-progress-list"></div>
+                </div>
+                <div class="fp-tools-modal-footer">
+                    <button id="lot-io-continue-btn" class="btn" style="display:none;">Продолжить</button>
+                    <button id="lot-io-cancel-btn" class="btn btn-default">Отменить</button>
+                    <div id="lot-io-postpone-controls">
+                        <p>Отложите прогресс на завтра, если сейчас не работает.</p>
+                        <button id="lot-io-postpone-btn" class="btn btn-default">Отложить</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
 function createMainPopup() {
     const toolsPopup = document.createElement('div');
     toolsPopup.className = 'fp-tools-popup';
@@ -84,10 +134,18 @@ function createMainPopup() {
                         <span class="nav-icon">❤️</span>
                         <span>Понравился FP Tools? <a href="#" data-nav-to="support">Поддержите труд разработчика</a> во вкладке "Поддержка"!</span>
                     </div>
+                    <div class="support-promo" style="background: rgba(255, 152, 0, 0.1); border-color: rgba(255, 152, 0, 0.3); margin-top: 15px;">
+                        <span class="nav-icon" style="color: #ff9800;">⚠️</span>
+                        <span>Для корректной работы расширения рекомендуется использовать FunPay на <strong>русском языке</strong>, так как большинство функций не будут работать на других языках.</span>
+                    </div>
                 </div>
                 <div class="fp-tools-page-content" data-page="accounts">
                     <h3>Управление аккаунтами</h3>
                     <p class="template-info">Добавьте текущий аккаунт в список, чтобы быстро переключаться между профилями без ввода пароля.</p>
+                    <div class="support-promo" style="background: rgba(255, 152, 0, 0.1); border-color: rgba(255, 152, 0, 0.3); margin-bottom: 20px;">
+                        <span class="nav-icon" style="color: #ff9800;">⚠️</span>
+                        <span><strong>ВАЖНО:</strong> Перед тем как выйти из своего аккаунта, чтобы войти на другой и добавить его в этот список, выходите через кнопку <strong>«Выйти (очистить куки)»</strong>. Иначе при попытке переключиться на новый аккаунт FunPay будет вас разлогинивать.</span>
+                    </div>
                     <button id="addCurrentAccountBtn" class="btn">+ Добавить текущий аккаунт</button>
                     <h4 style="margin-top: 30px;">Сохраненные аккаунты:</h4>
                     <div id="fpToolsAccountsList"></div>
@@ -117,6 +175,13 @@ function createMainPopup() {
                             </li>
                         </ul>
                      </div>
+                     
+                     <!-- === НОВЫЙ БЛОК === -->
+                     <div class="template-info image-upload-warning">
+                        <span class="nav-icon">🖼️</span>
+                        <span><b>Изображения в шаблонах:</b> Используйте кнопку 🖼️, чтобы добавить картинку с компьютера. Она будет вставлена как код. При отправке шаблона картинка будет отправлена в чат, как будто вы её скопировали и вставили.</span>
+                     </div>
+                     <!-- === КОНЕЦ НОВОГО БЛОКА === -->
 
                     <div id="template-settings-container" class="template-settings-list"></div>
                     <button id="addCustomTemplateBtn" class="btn" style="margin-top: 10px;">+ Добавить свой шаблон</button>
@@ -151,6 +216,37 @@ function createMainPopup() {
                             <textarea id="fpt-review-1" class="template-input" placeholder="Шаблон для 1 звезды"></textarea>
                         </div>
                     </div>
+                    
+                    <h3>Бонус за отзыв</h3>
+                    <div class="checkbox-label-inline">
+                        <input type="checkbox" id="bonusForReviewEnabled">
+                        <label for="bonusForReviewEnabled" style="margin-bottom:0;"><span>Отправлять бонус в чат за отзыв 5 ★</span></label>
+                    </div>
+                    <p class="template-info">Если покупатель оставит отзыв 5 звёзд, ему в чат будет автоматически отправлено сообщение с бонусом. Ничего не будет отправлено за оценки ниже 5 звёзд.</p>
+                    <div class="fp-tools-radio-group" id="bonusModeSelector">
+                        <label class="fp-tools-radio-option"><input type="radio" name="bonusMode" value="single" checked><span>Один бонус</span></label>
+                        <label class="fp-tools-radio-option"><input type="radio" name="bonusMode" value="random"><span>Случайный из списка</span></label>
+                    </div>
+                    <div id="singleBonusContainer" class="template-container">
+                         <!-- === НОВЫЙ БЛОК === -->
+                        <div class="textarea-with-controls">
+                            <textarea id="singleBonusText" class="template-input" placeholder="Текст вашего бонуса..."></textarea>
+                            <button class="btn add-image-btn" title="Добавить изображение">🖼️</button>
+                        </div>
+                         <!-- === КОНЕЦ НОВОГО БЛОКА === -->
+                    </div>
+                    <div id="randomBonusContainer" class="template-container" style="display: none;">
+                        <div id="bonus-list-container" class="bonus-list"></div>
+                        <div class="bonus-add-form">
+                             <!-- === НОВЫЙ БЛОК === -->
+                            <div class="textarea-with-controls">
+                                <textarea id="newBonusText" placeholder="Текст нового бонуса для списка..."></textarea>
+                                <button class="btn add-image-btn" title="Добавить изображение">🖼️</button>
+                            </div>
+                             <!-- === КОНЕЦ НОВОГО БЛОКА === -->
+                            <button id="addBonusBtn" class="btn btn-default">Добавить бонус в список</button>
+                        </div>
+                    </div>
 
                     <h3>Автоответчик в чате</h3>
                      <div class="template-container">
@@ -158,7 +254,12 @@ function createMainPopup() {
                             <input type="checkbox" id="greetingEnabled">
                             <label for="greetingEnabled" style="margin-bottom:0;"><span>Авто-приветствие для новых покупателей</span></label>
                         </div>
-                        <textarea id="greetingText" class="template-input" placeholder="Текст приветствия..."></textarea>
+                         <!-- === НОВЫЙ БЛОК === -->
+                        <div class="textarea-with-controls">
+                            <textarea id="greetingText" class="template-input" placeholder="Текст приветствия..."></textarea>
+                            <button class="btn add-image-btn" title="Добавить изображение">🖼️</button>
+                        </div>
+                         <!-- === КОНЕЦ НОВОГО БЛОКА === -->
                     </div>
                     <div class="template-container">
                         <div class="checkbox-label-inline">
@@ -168,7 +269,12 @@ function createMainPopup() {
                         <div id="keywords-list-container" class="keywords-list"></div>
                         <div class="keyword-add-form">
                             <input type="text" id="newKeyword" placeholder="Команда, например: !цена">
-                            <textarea id="newKeywordResponse" placeholder="Текст ответа, например: '5к за 1 коин'"></textarea>
+                             <!-- === НОВЫЙ БЛОК === -->
+                            <div class="textarea-with-controls">
+                                <textarea id="newKeywordResponse" placeholder="Текст ответа, например: '5к за 1 коин'"></textarea>
+                                <button class="btn add-image-btn" title="Добавить изображение">🖼️</button>
+                            </div>
+                             <!-- === КОНЕЦ НОВОГО БЛОКА === -->
                             <button id="addKeywordBtn" class="btn btn-default">Добавить команду</button>
                         </div>
                     </div>
@@ -194,6 +300,11 @@ function createMainPopup() {
                         <input type="file" id="lot-io-import-file" accept=".json" style="display: none;">
                     </div>
                     <a href="#" id="convert-cardinal-lots-btn" style="display: block; text-align: center; margin-top: 25px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 13px; color: #a0a0a0; text-decoration: underline;">Преобразовать Cardinal лоты в формат лотов FunPay Tools</a>
+
+                    <h4 style="margin-top: 30px;">Незавершённые импорты</h4>
+                    <div id="lot-io-pending-imports-list">
+                        <p class="template-info">Здесь будут отображаться отложенные процессы импорта.</p>
+                    </div>
                 </div>
                 <div class="fp-tools-page-content" data-page="piggy_banks">
                     <h3>Управление копилками</h3>
@@ -297,46 +408,6 @@ function createMainPopup() {
         </div>
         <div class="fp-tools-footer">
             <button id="saveSettings" class="btn">Сохранить</button>
-        </div>
-        
-        <div class="fp-tools-modal-overlay" id="autobump-category-modal-overlay" style="display: none;"><div class="fp-tools-modal-content"><div class="fp-tools-modal-header"><h3>Выберите категории для поднятия</h3><button class="fp-tools-modal-close">&times;</button></div><div class="fp-tools-modal-body"><div class="autobump-modal-controls"><input type="text" id="autobump-category-search" placeholder="Поиск по категориям..."><button id="autobump-select-all" class="btn btn-default" style="padding: 6px 12px; font-size: 13px;">Выбрать всё</button></div><div id="autobump-category-list" class="autobump-category-list"></div></div><div class="fp-tools-modal-footer"><button id="autobump-category-save" class="btn">Сохранить</button></div></div></div>
-
-        <div class="fp-tools-modal-overlay" id="lot-io-export-modal" style="display: none;">
-            <div class="fp-tools-modal-content">
-                <div class="fp-tools-modal-header">
-                    <h3>Экспорт лотов</h3>
-                    <button class="fp-tools-modal-close">&times;</button>
-                </div>
-                <div class="fp-tools-modal-body">
-                    <p class="template-info">Выберите категории, лоты из которых вы хотите экспортировать в файл.</p>
-                    <div class="autobump-modal-controls">
-                        <button id="lot-io-select-all" class="btn btn-default" style="padding: 6px 12px; font-size: 13px; flex-grow:1;">Выбрать/снять все</button>
-                    </div>
-                    <div class="lot-io-category-list"></div>
-                    <div class="lot-io-warning">
-                        <span class="material-icons">warning</span>
-                        <span><b>Внимание!</b> Не закрывайте и не перезагружайте эту вкладку до завершения процесса экспорта.</span>
-                    </div>
-                </div>
-                <div class="fp-tools-modal-footer">
-                    <button id="lot-io-export-confirm" class="btn">Экспортировать</button>
-                </div>
-            </div>
-        </div>
-        <div class="fp-tools-modal-overlay" id="lot-io-import-progress-modal" style="display: none;">
-            <div class="fp-tools-modal-content">
-                <div class="fp-tools-modal-header">
-                    <h3>Прогресс импорта</h3>
-                </div>
-                <div class="fp-tools-modal-body">
-                    <div id="lot-io-progress-summary">Подготовка...</div>
-                    <div class="lot-io-progress-list"></div>
-                </div>
-                <div class="fp-tools-modal-footer">
-                    <button id="lot-io-continue-btn" class="btn" style="display:none;">Продолжить</button>
-                    <button id="lot-io-cancel-btn" class="btn btn-default">Отменить</button>
-                </div>
-            </div>
         </div>
     `;
     return toolsPopup;

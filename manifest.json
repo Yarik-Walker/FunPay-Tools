@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "FunPay Tools",
-    "version": "2.6",
+    "version": "2.7",
     "description": "Глобальное расширение для FunPay ⚡ 100+ инструментов • ИИ-помощник • Автоответчик • Аналитика • Автоматизация • Больше продаж",
     "permissions": [
         "storage",
@@ -10,7 +10,7 @@
         "alarms",
         "offscreen",
         "notifications",
-        "background" 
+        "background"
     ],
     "host_permissions": [
         "https://fptools-ai-server.vercel.app/*",
@@ -76,6 +76,7 @@
                 "content/features/piggy_bank.js",
                 "content/features/lot_io.js",
                 "content/features/auto_review.js",
+                "content/features/fpt_identifier.js",
                 "content/ui/main_popup.js",
                 "content/ui/header_button_styler.js",
                 "content/content_script.js"

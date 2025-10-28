@@ -1,5 +1,111 @@
 // content/features/lot_cloning.js
 
+// --- НОВЫЙ БЛОК: Логика для копирования данных с публичной страницы лота ---
+const COPIED_LOT_STORAGE_KEY = 'fpToolsCopiedLotData';
+
+async function handlePublicLotCopy() {
+    const copyButton = document.getElementById('fp-tools-public-clone-btn');
+    if (!copyButton) return;
+
+    copyButton.disabled = true;
+    copyButton.textContent = 'Копирование...';
+
+    try {
+        const offerId = new URLSearchParams(window.location.search).get('id');
+        if (!offerId) {
+            throw new Error('Не удалось найти ID лота на странице.');
+        }
+        
+        // Используем улучшенную функцию парсинга
+        const lotData = await fetchPublicLotDataForImport(offerId);
+
+        if (!lotData.summary && !lotData.description) {
+            throw new Error('Не удалось скопировать данные. Возможно, структура страницы изменилась.');
+        }
+        
+        // Сохраняем данные в хранилище расширения
+        await chrome.storage.local.set({
+            [COPIED_LOT_STORAGE_KEY]: {
+                summary: lotData.summary,
+                description: lotData.description,
+                timestamp: Date.now()
+            }
+        });
+
+        showNotification('Лот скопирован! Теперь создайте новый лот в нужной категории, и вам будет предложено вставить данные.', false);
+
+    } catch (error) {
+        showNotification(`Ошибка копирования: ${error.message}`, true);
+        console.error('FP Tools Public Lot Copy Error:', error);
+    } finally {
+        copyButton.disabled = false;
+        copyButton.textContent = 'Копировать лот';
+    }
+}
+
+// --- НОВЫЙ БЛОК: Проверка и вставка скопированных данных через панель ---
+async function checkForCopiedLotData() {
+    const isEditPage = window.location.pathname.includes('/lots/offerEdit');
+    const isAddPage = window.location.pathname.includes('/lots/offer/add');
+
+    if (!isEditPage && !isAddPage) {
+        return;
+    }
+
+    const result = await chrome.storage.local.get(COPIED_LOT_STORAGE_KEY);
+    const copiedData = result[COPIED_LOT_STORAGE_KEY];
+
+    // Если данных нет или они старше 10 минут, ничего не делаем и чистим хранилище
+    if (!copiedData || (Date.now() - copiedData.timestamp > 10 * 60 * 1000)) {
+        await chrome.storage.local.remove(COPIED_LOT_STORAGE_KEY);
+        return;
+    }
+
+    // Создаем панель-уведомление
+    const pasteBar = createElement('div', { id: 'fp-tools-paste-bar' });
+    pasteBar.innerHTML = `
+        <span class="paste-bar-icon">📋</span>
+        <span class="paste-bar-text">Найдены скопированные данные лота. Вставить их в форму?</span>
+        <div class="paste-bar-actions">
+            <button id="paste-lot-data-btn" class="btn btn-sm btn-primary">Вставить</button>
+            <button id="decline-paste-btn" class="btn btn-sm btn-default">&times;</button>
+        </div>
+    `;
+    
+    const header = document.querySelector('h1.page-header');
+    if (header) {
+        header.insertAdjacentElement('afterend', pasteBar);
+    }
+
+    // Обработчик кнопки "Вставить"
+    document.getElementById('paste-lot-data-btn').addEventListener('click', () => {
+        const summaryInput = document.querySelector('input[name="fields[summary][ru]"]');
+        const descTextarea = document.querySelector('textarea[name="fields[desc][ru]"]');
+
+        if (summaryInput && copiedData.summary) {
+            summaryInput.value = copiedData.summary;
+            summaryInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        if (descTextarea && copiedData.description) {
+            descTextarea.value = copiedData.description;
+            descTextarea.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+
+        showNotification('Данные вставлены!', false);
+        chrome.storage.local.remove(COPIED_LOT_STORAGE_KEY);
+        pasteBar.remove();
+    });
+
+    // Обработчик кнопки "Отклонить"
+    document.getElementById('decline-paste-btn').addEventListener('click', () => {
+        chrome.storage.local.remove(COPIED_LOT_STORAGE_KEY);
+        pasteBar.remove();
+    });
+}
+
+
+// --- Остальной код файла остается без изменений ---
+
 async function submitForm(formData) {
     const nodeId = new URLSearchParams(window.location.search).get('node');
     formData.set('node_id', nodeId); formData.set('offer_id', '0');
@@ -10,7 +116,6 @@ async function submitForm(formData) {
     } catch (error) { console.error('Ошибка при выполнении запроса', error); showNotification('Ошибка при выполнении запроса', true); }
 }
 
-// Эта функция остается для импорта ВАШИХ лотов
 async function fetchLotDataForImport(nodeId, offerId) {
     if (!nodeId || !offerId) {
         throw new Error('Не найден ID лота или категории.');
@@ -42,12 +147,12 @@ async function fetchLotDataForImport(nodeId, offerId) {
     };
 }
 
-// НОВАЯ ФУНКЦИЯ: Загружает и парсит публичную страницу лота
+// --- ИЗМЕНЕННАЯ ФУНКЦИЯ (улучшенная для поддержки разных языков) ---
 async function fetchPublicLotDataForImport(offerId) {
     if (!offerId) {
         throw new Error('Не найден ID лота.');
     }
-    const publicUrl = `https://funpay.com/lots/offer?id=${offerId}`;
+    const publicUrl = `${window.location.origin}/lots/offer?id=${offerId}`;
     const response = await fetch(publicUrl);
     if (!response.ok) {
         throw new Error(`Ошибка сети при загрузке лота: ${response.status}`);
@@ -58,6 +163,10 @@ async function fetchPublicLotDataForImport(offerId) {
     let summary = '';
     let description = '';
 
+    // Массивы возможных названий заголовков на разных языках
+    const summaryHeaders = ['Краткое описание', 'Short description'];
+    const descriptionHeaders = ['Подробное описание', 'Detailed description'];
+
     const headers = doc.querySelectorAll('.param-list .param-item h5');
     
     headers.forEach(header => {
@@ -65,9 +174,9 @@ async function fetchPublicLotDataForImport(offerId) {
         const contentDiv = header.nextElementSibling;
         
         if (contentDiv) {
-            if (headerText === 'Краткое описание') {
+            if (summaryHeaders.includes(headerText)) {
                 summary = contentDiv.textContent.trim();
-            } else if (headerText === 'Подробное описание') {
+            } else if (descriptionHeaders.includes(headerText)) {
                 // Преобразуем <br> в переносы строк для textarea
                 description = contentDiv.innerHTML.trim().replace(/<br\s*\/?>/gi, "\n");
             }
@@ -79,6 +188,10 @@ async function fetchPublicLotDataForImport(offerId) {
 
 
 function initializeLotCloning() {
+    // --- НОВЫЙ БЛОК: Проверяем, есть ли скопированные данные для вставки ---
+    checkForCopiedLotData();
+    // --- КОНЕЦ НОВОГО БЛОКА ---
+
     const header = Array.from(document.querySelectorAll('h1.page-header.page-header-no-hr')).find(h1 => h1.textContent.includes('Редактирование предложения') || h1.textContent.includes('Добавление предложения'));
     if (!header) return;
 
@@ -400,12 +513,10 @@ function initializeGlobalSearchLogic() {
                 previewContainer.innerHTML = '<div class="fp-import-loader"></div>';
                 
                 const lotData = await fetchPublicLotDataForImport(offerId);
-                // ИСПРАВЛЕНИЕ: Вызываем новую функцию рендера для публичных лотов
                 renderPublicPreview(lotData);
             }
         } catch (error) {
             resultsContainer.innerHTML = `<div class="fp-import-empty">Ошибка: ${error.message}</div>`;
-            // Возвращаем на шаг назад в случае ошибки
             searchInput.style.display = 'block';
             backBtn.style.display = 'none';
             searchState.step = 'game';
@@ -464,7 +575,6 @@ function initializeGlobalSearchLogic() {
     }
 }
 
-// НОВАЯ ФУНКЦИЯ: Рендер предпросмотра для публичных лотов
 function renderPublicPreview(data) {
     const previewContainer = document.getElementById('fp-import-preview-content');
     previewContainer.innerHTML = `
@@ -512,7 +622,6 @@ function renderPublicPreview(data) {
     });
 }
 
-// Рендер предпросмотра для СВОИХ лотов
 function renderPreview(data) {
     const previewContainer = document.getElementById('fp-import-preview-content');
     previewContainer.innerHTML = `
