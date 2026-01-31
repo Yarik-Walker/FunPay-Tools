@@ -77,6 +77,16 @@ function createMainPopup() {
                     <li data-page="currency_calc"><a><span class="nav-icon">💸</span><span>Калькулятор валют</span></a></li>
                     <li data-page="effects"><a><span class="nav-icon">✨</span><span>Эффекты</span></a></li>
                     <li data-page="overview"><a><span class="nav-icon">🎬</span><span>Обзор</span></a></li>
+                    <li data-page="competitors"><a><span class="nav-icon">🔍</span><span>Конкуренты</span></a></li>
+                    <li data-page="orders"><a><span class="nav-icon">📋</span><span>Заказы</span></a></li>
+                    <li data-page="notifications"><a><span class="nav-icon">🔔</span><span>Уведомления</span></a></li>
+                    <li data-page="security"><a><span class="nav-icon">🔒</span><span>Безопасность</span></a></li>
+                    <li data-page="social"><a><span class="nav-icon">👥</span><span>Социальное</span></a></li>
+                    <li data-page="analytics"><a><span class="nav-icon">📊</span><span>Аналитика</span></a></li>
+                    <li data-page="ui_settings"><a><span class="nav-icon">⚡</span><span>Интерфейс</span></a></li>
+                    <li data-page="integrations"><a><span class="nav-icon">🔗</span><span>Интеграции</span></a></li>
+                    <li data-page="automation"><a><span class="nav-icon">🤖</span><span>Автоматизация</span></a></li>
+                    <li data-page="tools"><a><span class="nav-icon">🛠️</span><span>Инструменты</span></a></li>
                     <li data-page="support"><a><span class="nav-icon">❤️</span><span>Поддержка</span></a></li>
                 </ul>
             </nav>
@@ -387,6 +397,36 @@ function createMainPopup() {
                     <div class="overview-container"><h3 style="border:none">Видео-обзор функций</h3><p class="template-info">Посмотрите короткий кинематографический ролик, демонстрирующий все возможности FP Tools в действии. Откройте для себя инструменты, о которых вы могли не знать!</p><div class="overview-promo-art"></div><button id="start-overview-tour-btn" class="btn">▶️ Начать обзор</button></div>
                     <div class="feature-list-container"><h3>Справочник по функциям</h3><div class="feature-item"><div class="feature-title"><span class="material-icons">smart_toy</span>ИИ-Ассистент в чате</div><div class="feature-location"><strong>Где найти:</strong> В любом чате, кнопка "AI" рядом с полем ввода.</div><div class="feature-desc">Улучшает ваш текст, делая его вежливым и профессиональным. Активируйте режим и нажмите Enter для обработки. Также предупреждает о грубости.</div></div><div class="feature-item"><div class="feature-title"><span class="material-icons">auto_fix_high</span>AI-Генератор лотов</div><div class="feature-location"><strong>Где найти:</strong> На странице создания/редактирования лота.</div><div class="feature-desc">Создает название и описание для лота на основе ваших идей, анализируя и копируя стиль ваших существующих предложений.</div></div><div class="feature-item"><div class="feature-title"><span class="material-icons">add_photo_alternate</span>AI-Генератор изображений</div><div class="feature-location"><strong>Где найти:</strong> На странице создания/редактирования лота, в разделе "Изображения".</div><div class="feature-desc">Создавайте уникальные и стильные превью для ваших предложений с помощью встроенного генератора, в том числе по текстовому запросу.</div></div><div class="feature-item"><div class="feature-title"><span class="material-icons">palette</span>Полная кастомизация</div><div class="feature-location"><strong>Где найти:</strong> Вкладка "Кастомизация".</div><div class="feature-desc">Измените внешний вид FunPay: установите анимированный фон, настройте цвета, шрифты, прозрачность блоков и даже расположение верхней панели.</div></div><div class="feature-item"><div class="feature-title"><span class="material-icons">auto_fix_normal</span>"Кастомизатор (режим редактора)</div><div class="feature-location"><strong>Где найти:</strong> Вкладка "Кастомизация".</div><div class="feature-desc">Редактируйте любой элемент сайта в реальном времени. Меняйте цвета, размеры или скрывайте ненужное, сохраняя стили навсегда.</div></div><div class="feature-item"><div class="feature-title"><span class="material-icons">description</span>Шаблоны и AI-переменные</div><div class="feature-location"><strong>Где найти:</strong> Под полем ввода в чате. Настраиваются во вкладке "Шаблоны".</div><div class="feature-desc">Быстрая вставка готовых сообщений. Поддерживают переменные {buyername}, {date} и даже генерацию текста через {ai:ваш запрос}.</div></div><div class="feature-item"><div class="feature-title"><span class="material-icons">checklist</span>Управление лотами и ценами</div><div class="feature-location"><strong>Где найти:</strong> На странице вашего профиля (funpay.com/users/...).</div><div class="feature-desc">Кнопка "Выбрать" позволяет выделить несколько лотов для массового удаления, дублирования, отключения или редактирования цен.</div></div><div class="feature-item"><div class="feature-title"><span class="material-icons">control_point_duplicate</span>Клонирование лотов</div><div class="feature-location"><strong>Где найти:</strong> На странице редактирования любого вашего лота.</div><div class="feature-desc">Кнопка "Копировать" позволяет создать точную копию лота или массово размножить его по разным категориям (например, по разным серверам).</div></div><div class="feature-item"><div class="feature-title"><span class="material-icons">public</span>Глобальный импорт лотов</div><div class="feature-location"><strong>Где найти:</strong> На странице редактирования лота, кнопка "Импорт".</div><div class="feature-desc">Импортируйте название и описание любого лота с FunPay, чтобы анализировать конкурентов или использовать как основу.</div></div><div class="feature-item"><div class="feature-title"><span class="material-icons">sort_by_alpha</span>Сортировка по отзывам</div><div class="feature-location"><strong>Где найти:</strong> На любой странице со списком лотов.</div><div class="feature-desc">Кликните на заголовок "Продавец" в таблице, чтобы отсортировать все предложения по количеству отзывов у продавцов.</div></div><div class="feature-item"><div class="feature-title"><span class="material-icons">label</span>Пометки для пользователей</div><div class="feature-location"><strong>Где найти:</strong> В выпадающем меню в заголовке чата с человеком.</div><div class="feature-desc">Устанавливайте настраиваемые цветные метки для пользователей, которые будут видны в вашем списке контактов.</div></div><div class="feature-item"><div class="feature-title"><span class="material-icons">rocket_launch</span>Авто-поднятие лотов</div><div class="feature-location"><strong>Где найти:</strong> Вкладка "Авто-поднятие".</div><div class="feature-desc">Настройте автоматическое поднятие лотов по таймеру. Можно выбрать для поднятия только определенные категории.</div></div><div class="feature-item"><div class="feature-title"><span class="material-icons">monitoring</span>Статистика</div><div class="feature-location"><strong>Где найти:</strong> Страница "Продажи" - статистика продаж, кнопка "Аналитика рынка" на странице игры.</div><div class="feature-desc">Получайте детальную статистику по своим продажам и анализируйте рыночную ситуацию в любой категории.</div></div><div class="feature-item"><div class="feature-title"><span class="material-icons">savings</span>Финансовые копилки</div><div class="feature-location"><strong>Где найти:</strong> Вкладка "Копилки" и иконка в шапке сайта.</div><div class="feature-desc">Устанавливайте финансовые цели и отслеживайте их достижение. Копилка синхронизируется с балансом FunPay.</div></div></div>
                 </div>
+                <div class="fp-tools-page-content" data-page="competitors">
+                    <!-- Контент загружается динамически -->
+                </div>
+                <div class="fp-tools-page-content" data-page="orders">
+                    <!-- Контент загружается динамически -->
+                </div>
+                <div class="fp-tools-page-content" data-page="notifications">
+                    <!-- Контент загружается динамически -->
+                </div>
+                <div class="fp-tools-page-content" data-page="security">
+                    <!-- Контент загружается динамически -->
+                </div>
+                <div class="fp-tools-page-content" data-page="social">
+                    <!-- Контент загружается динамически -->
+                </div>
+                <div class="fp-tools-page-content" data-page="analytics">
+                    <!-- Контент загружается динамически -->
+                </div>
+                <div class="fp-tools-page-content" data-page="ui_settings">
+                    <!-- Контент загружается динамически -->
+                </div>
+                <div class="fp-tools-page-content" data-page="integrations">
+                    <!-- Контент загружается динамически -->
+                </div>
+                <div class="fp-tools-page-content" data-page="automation">
+                    <!-- Контент загружается динамически -->
+                </div>
+                <div class="fp-tools-page-content" data-page="tools">
+                    <!-- Контент загружается динамически -->
+                </div>
                 <div class="fp-tools-page-content" data-page="support">
                     <h3>Поддержка проекта</h3>
                     <div class="support-container">
@@ -436,8 +476,17 @@ function setupPopupNavigation() {
             if (pageId === 'templates') { if (typeof setupTemplateSettingsHandlers === 'function') setupTemplateSettingsHandlers(); }
             if (pageId === 'piggy_banks') { if (typeof renderPiggyBankSettings === 'function') renderPiggyBankSettings(); }
             if (pageId === 'lot_io') { if (typeof initializeLotIO === 'function') initializeLotIO(); }
-
             if (pageId === 'auto_review') { if (typeof initializeAutoReviewUI === 'function') initializeAutoReviewUI(); }
+            if (pageId === 'competitors') { if (typeof initializeCompetitorMonitoring === 'function') initializeCompetitorMonitoring(); }
+            if (pageId === 'orders') { if (typeof initializeOrderEnhancements === 'function') initializeOrderEnhancements(); }
+            if (pageId === 'notifications') { if (typeof initializeAdvancedNotifications === 'function') initializeAdvancedNotifications(); }
+            if (pageId === 'security') { if (typeof initializeSecurityFeatures === 'function') initializeSecurityFeatures(); }
+            if (pageId === 'social') { if (typeof initializeSocialFeatures === 'function') initializeSocialFeatures(); }
+            if (pageId === 'analytics') { if (typeof initializeAdvancedAnalytics === 'function') initializeAdvancedAnalytics(); }
+            if (pageId === 'ui_settings') { if (typeof setupUISettingsUI === 'function') setupUISettingsUI(); }
+            if (pageId === 'integrations') { if (typeof initializeIntegrations === 'function') initializeIntegrations(); }
+            if (pageId === 'automation') { if (typeof initializeAdvancedAutomation === 'function') initializeAdvancedAutomation(); }
+            if (pageId === 'tools') { if (typeof initializeAdditionalTools === 'function') initializeAdditionalTools(); }
 
             chrome.storage.local.set({ fpToolsLastPage: pageId });
         });

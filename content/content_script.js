@@ -472,6 +472,16 @@ function initializeDynamicFeatures() {
         initializeLotIO();
         initializeAutoReview(); // <-- ВЫЗОВ НОВОЙ ФУНКЦИИ
         initializeFPTIdentifier(); // <-- ВЫЗОВ НОВОЙ ФУНКЦИИ
+        if (typeof initializeCompetitorMonitoring === 'function') initializeCompetitorMonitoring();
+        if (typeof initializeOrderEnhancements === 'function') initializeOrderEnhancements();
+        if (typeof initializeAdvancedNotifications === 'function') initializeAdvancedNotifications();
+        if (typeof initializeSecurityFeatures === 'function') initializeSecurityFeatures();
+        if (typeof initializeSocialFeatures === 'function') initializeSocialFeatures();
+        if (typeof initializeAdvancedAnalytics === 'function') initializeAdvancedAnalytics();
+        if (typeof initializeUIImprovements === 'function') initializeUIImprovements();
+        if (typeof initializeIntegrations === 'function') initializeIntegrations();
+        if (typeof initializeAdvancedAutomation === 'function') initializeAdvancedAutomation();
+        if (typeof initializeAdditionalTools === 'function') initializeAdditionalTools();
 
         chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             if (request.action === 'logToAutoBumpConsole') {

@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "FunPay Tools",
-    "version": "2.7",
+    "version": "3.0",
     "description": "Глобальное расширение для FunPay ⚡ 100+ инструментов • ИИ-помощник • Автоответчик • Аналитика • Автоматизация • Больше продаж",
     "permissions": [
         "storage",
@@ -18,7 +18,11 @@
         "https://cdn.jsdelivr.net/*",
         "https://fonts.googleapis.com/*",
         "https://fonts.gstatic.com/*",
-        "https://gist.githubusercontent.com/*"
+        "https://gist.githubusercontent.com/*",
+        "https://api.telegram.org/*",
+        "https://api.qrserver.com/*",
+        "https://sheets.googleapis.com/*",
+        "https://api.notion.com/*"
     ],
     "action": {
         "default_popup": "popup/popup.html",
@@ -77,6 +81,16 @@
                 "content/features/lot_io.js",
                 "content/features/auto_review.js",
                 "content/features/fpt_identifier.js",
+                "content/features/competitor_monitoring.js",
+                "content/features/order_enhancements.js",
+                "content/features/advanced_notifications.js",
+                "content/features/security_features.js",
+                "content/features/social_features.js",
+                "content/features/advanced_analytics.js",
+                "content/features/ui_improvements.js",
+                "content/features/integrations.js",
+                "content/features/automation_advanced.js",
+                "content/features/additional_tools.js",
                 "content/ui/main_popup.js",
                 "content/ui/header_button_styler.js",
                 "content/content_script.js"
